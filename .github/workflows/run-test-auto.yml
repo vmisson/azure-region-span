@@ -1,0 +1,114 @@
+name: Run Test for Next Region
+
+on:
+  workflow_dispatch:  # Allow manual trigger
+  schedule:
+    - cron: '0 0,3,6,9,12,15,18,21 * * *'   # Run at 0:00, 3:00, 6:00, etc.
+    - cron: '30 1,4,7,10,13,16,19,22 * * *' # Run at 1:30, 4:30, 7:30, etc.
+
+jobs:
+  infrastructure:
+    name: Run Infrastructure
+    runs-on: ubuntu-latest
+    outputs:
+      success: ${{ steps.infra.outcome == 'success' }}
+    steps:
+      - name: Run Infrastructure workflow
+        id: infra
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run infra.yml --repo vmisson/azure-region-bench
+          sleep 10
+          RUN_ID=$(gh run list --workflow=infra.yml --repo vmisson/azure-region-bench --limit 1 --json databaseId --jq '.[0].databaseId')
+          gh run watch $RUN_ID --repo vmisson/azure-region-bench --interval 60 --exit-status
+
+  servers:
+    name: Run Server workflows
+    runs-on: ubuntu-latest
+    needs: infrastructure
+    steps:
+      - name: Run Server workflows (All Regions)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # List of all region workflows
+          REGIONS=(
+            australiaeast
+            belgiumcentral
+            brazilsouth
+            canadacentral
+            centralindia
+            centralus
+            chilecentral
+            eastasia
+            eastus
+            eastus2
+            francecentral
+            germanywestcentral
+            indonesiacentral
+            israelcentral
+            italynorth
+            japaneast
+            japanwest
+            koreacentral
+            malaysiawest
+            mexicocentral
+            newzealandnorth
+            northeurope
+            norwayeast
+            polandcentral
+            qatarcentral
+            southafricanorth
+            southcentralus
+            southeastasia
+            spaincentral
+            swedencentral
+            switzerlandnorth
+            uaenorth
+            uksouth
+            westeurope
+            westus2
+            westus3
+          )
+          
+          # Trigger all workflows
+          for region in "${REGIONS[@]}"; do
+            gh workflow run ${region}.yml --repo vmisson/azure-region-bench
+          done
+          sleep 10
+          
+          # Get run IDs and wait for all workflows to complete in parallel
+          for region in "${REGIONS[@]}"; do
+            RUN_ID=$(gh run list --workflow=${region}.yml --repo vmisson/azure-region-bench --limit 1 --json databaseId --jq '.[0].databaseId')
+            gh run watch $RUN_ID --repo vmisson/azure-region-bench --interval 120 &
+          done
+          wait
+
+  client:
+    name: Run Client workflow
+    runs-on: ubuntu-latest
+    needs: servers
+    steps:
+      - name: Run Client workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run client.yml --repo vmisson/azure-region-bench
+          sleep 10
+          RUN_ID=$(gh run list --workflow=client.yml --repo vmisson/azure-region-bench --limit 1 --json databaseId --jq '.[0].databaseId')
+          gh run watch $RUN_ID --repo vmisson/azure-region-bench --interval 60
+
+      - name: Wait 10 minutes
+        run: sleep 600
+
+  cleanup:
+    name: Run Cleanup workflow
+    runs-on: ubuntu-latest
+    needs: [infrastructure, servers, client]
+    if: always()
+    steps:
+      - name: Run Cleanup workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run cleanup.yml --repo vmisson/azure-region-bench
