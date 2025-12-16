@@ -95,9 +95,12 @@ terraform apply -var-file="tfvars/francecentral.tfvars" \
 | Region | tfvars File |
 |--------|-------------|
 | Australia East | `australiaeast.tfvars` |
+| Australia Southeast | `australiasoutheast.tfvars` |
+| Austria East | `austriaeast.tfvars` |
 | Belgium Central | `belgiumcentral.tfvars` |
 | Brazil South | `brazilsouth.tfvars` |
 | Canada Central | `canadacentral.tfvars` |
+| Canada East | `canadaeast.tfvars` |
 | Central India | `centralindia.tfvars` |
 | Central US | `centralus.tfvars` |
 | Chile Central | `chilecentral.tfvars` |
@@ -112,9 +115,11 @@ terraform apply -var-file="tfvars/francecentral.tfvars" \
 | Japan East | `japaneast.tfvars` |
 | Japan West | `japanwest.tfvars` |
 | Korea Central | `koreacentral.tfvars` |
+| Korea South | `koreasouth.tfvars` |
 | Malaysia West | `malaysiawest.tfvars` |
 | Mexico Central | `mexicocentral.tfvars` |
 | New Zealand North | `newzealandnorth.tfvars` |
+| North Central US | `northcentralus.tfvars` |
 | North Europe | `northeurope.tfvars` |
 | Norway East | `norwayeast.tfvars` |
 | Poland Central | `polandcentral.tfvars` |
@@ -122,12 +127,17 @@ terraform apply -var-file="tfvars/francecentral.tfvars" \
 | South Africa North | `southafricanorth.tfvars` |
 | South Central US | `southcentralus.tfvars` |
 | Southeast Asia | `southeastasia.tfvars` |
+| South India | `southindia.tfvars` |
 | Spain Central | `spaincentral.tfvars` |
 | Sweden Central | `swedencentral.tfvars` |
 | Switzerland North | `switzerlandnorth.tfvars` |
 | UAE North | `uaenorth.tfvars` |
 | UK South | `uksouth.tfvars` |
+| UK West | `ukwest.tfvars` |
+| West Central US | `westcentralus.tfvars` |
 | West Europe | `westeurope.tfvars` |
+| West India | `westindia.tfvars` |
+| West US | `westus.tfvars` |
 | West US 2 | `westus2.tfvars` |
 | West US 3 | `westus3.tfvars` |
 
