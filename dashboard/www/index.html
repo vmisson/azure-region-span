@@ -51,6 +51,34 @@
             font-weight: 400;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: background 0.2s;
+        }
+
+        .github-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .github-link svg {
+            width: 18px;
+            height: 18px;
+        }
+
         .container {
             display: flex;
             height: calc(100vh - 60px);
@@ -97,6 +125,190 @@
             border-color: #0078d4;
         }
 
+        .destination-filter {
+            margin-bottom: 20px;
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .destination-filter > label {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .filter-controls button {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            color: #94a3b8;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-controls button:hover {
+            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+        }
+
+        .geo-filters {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .geo-filter-btn {
+            padding: 10px 12px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
+            color: #94a3b8;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .geo-filter-btn .geo-label {
+            font-weight: 500;
+        }
+
+        .geo-filter-btn:hover {
+            background: linear-gradient(135deg, #1a4a7a 0%, #0f3460 100%);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 120, 212, 0.2);
+        }
+
+        .geo-filter-btn.active {
+            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 120, 212, 0.4);
+        }
+
+        .geo-filter-btn.partial {
+            background: linear-gradient(135deg, rgba(0, 120, 212, 0.5) 0%, rgba(16, 110, 190, 0.3) 100%);
+            color: #fff;
+            border: 1px solid rgba(0, 120, 212, 0.5);
+        }
+
+        .geo-filter-btn .count {
+            background: rgba(255,255,255,0.15);
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .geo-filter-btn.active .count {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .geo-filter-btn.partial .count {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .regions-list-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #0f3460;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .regions-list-toggle:hover {
+            background: #1a4a7a;
+        }
+
+        .regions-list-toggle span {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .regions-list-toggle .toggle-icon {
+            transition: transform 0.3s;
+            color: #94a3b8;
+        }
+
+        .regions-list-toggle.open .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .destination-checkboxes {
+            max-height: 0;
+            overflow: hidden;
+            background: rgba(15, 52, 96, 0.3);
+            border-radius: 8px;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+
+        .destination-checkboxes.open {
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .destination-checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 2px;
+        }
+
+        .destination-checkbox-item:hover {
+            background: rgba(0, 120, 212, 0.15);
+        }
+
+        .destination-checkbox-item input {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            cursor: pointer;
+            accent-color: #0078d4;
+        }
+
+        .destination-checkbox-item label {
+            flex: 1;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+        }
+
+        .filter-summary {
+            font-size: 0.8rem;
+            color: #00d9ff;
+            margin-top: 8px;
+        }
+
         .latency-legend {
             background: #1a1a2e;
             border-radius: 8px;
@@ -124,10 +336,19 @@
             margin-right: 10px;
         }
 
+        .legend-color-circle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #ffffff;
+        }
+
         .stats-panel {
             background: #1a1a2e;
             border-radius: 8px;
             padding: 15px;
+            margin-top: 20px;
             margin-bottom: 20px;
         }
 
@@ -161,6 +382,7 @@
         .latency-list {
             max-height: 300px;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .latency-item {
@@ -392,6 +614,206 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #0078d4;
         }
+
+        /* Mobile menu button */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .mobile-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .mobile-menu-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        /* Mobile close button */
+        .sidebar-close {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .sidebar-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 15px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+                flex: 1;
+            }
+
+            .header h1 svg {
+                width: 24px;
+                height: 24px;
+            }
+
+            .disclaimer {
+                font-size: 0.65rem;
+                padding: 3px 8px;
+                order: 3;
+                width: 100%;
+                text-align: center;
+            }
+
+            .header-right {
+                order: 2;
+                gap: 10px;
+            }
+
+            .github-link {
+                font-size: 0.75rem;
+                padding: 4px 8px;
+            }
+
+            .github-link svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: calc(100vh - 100px);
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                width: 85%;
+                max-width: 350px;
+                height: 100vh;
+                z-index: 100;
+                transition: left 0.3s ease;
+                padding-top: 50px;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .sidebar-close {
+                display: block;
+            }
+
+            #map {
+                height: calc(100vh - 100px);
+                width: 100%;
+            }
+
+            .region-selector select {
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+
+            .geo-filters {
+                grid-template-columns: 1fr;
+            }
+
+            .geo-filter-btn {
+                padding: 12px;
+            }
+
+            .latency-list {
+                max-height: 200px;
+            }
+
+            .filter-controls {
+                flex-direction: column;
+            }
+
+            .filter-controls button {
+                padding: 12px;
+            }
+
+            .stats-panel {
+                margin-bottom: 80px; /* Extra space at bottom for easier scrolling */
+            }
+
+            .leaflet-control-zoom {
+                margin-bottom: 20px !important;
+            }
+
+            .loading-content {
+                padding: 20px;
+            }
+
+            .progress-container {
+                width: 250px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1rem;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-width: none;
+            }
+
+            .latency-legend h3,
+            .stats-panel h3 {
+                font-size: 0.9rem;
+            }
+
+            .legend-item {
+                font-size: 0.8rem;
+            }
+
+            .stat-item {
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -407,22 +829,79 @@
     </div>
 
     <header class="header">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
         <h1>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
             </svg>
             Azure Region Span
         </h1>
-        <span class="disclaimer">⚠️ Unofficial tool - Not affiliated with Microsoft</span>
+        <div class="header-right">
+            <a href="https://github.com/vmisson/azure-region-span" target="_blank" rel="noopener noreferrer" class="github-link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                azure-region-span
+            </a>
+            <span class="disclaimer">⚠️ Unofficial tool - Not affiliated with Microsoft</span>
+        </div>
     </header>
 
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="container">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
+            <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
             <div class="region-selector">
                 <label for="sourceRegion">Source Region</label>
                 <select id="sourceRegion">
                     <option value="">Select a region...</option>
                 </select>
+            </div>
+
+            <div class="destination-filter">
+                <label>Destination Regions Filter</label>
+                <div class="filter-controls">
+                    <button id="selectAllDest">Select All</button>
+                    <button id="selectNoneDest">Clear All</button>
+                </div>
+                <div class="geo-filters" id="geoFilters">
+                    <!-- Populated by JavaScript -->
+                </div>
+                <div class="regions-list-toggle" id="regionsListToggle">
+                    <span>Show individual regions</span>
+                    <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <div class="destination-checkboxes" id="destinationCheckboxes">
+                    <!-- Populated by JavaScript -->
+                </div>
+                <div class="filter-summary" id="filterSummary">All regions selected</div>
+            </div>
+
+            <div class="latency-legend">
+                <h3>Region Legend</h3>
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">Availability Zones Status</p>
+                <div class="legend-item">
+                    <div class="legend-color-circle" style="background: #00ff88;"></div>
+                    <span>With Availability Zones</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-circle" style="background: #0078d4;"></div>
+                    <span>Without Availability Zones</span>
+                </div>
             </div>
 
             <div class="latency-legend">
@@ -450,6 +929,16 @@
                 </div>
             </div>
 
+            <h2>Latency to Other Regions</h2>
+            <div class="latency-list" id="latencyList">
+                <div class="no-data">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                    </svg>
+                    <p>Select a source region to view latencies</p>
+                </div>
+            </div>
+
             <div class="stats-panel" id="statsPanel">
                 <h3>Statistics</h3>
                 <div class="stat-item">
@@ -465,16 +954,6 @@
                     <span class="stat-value" id="statAvgLatency">-</span>
                 </div>
             </div>
-
-            <h2>Latency to Other Regions</h2>
-            <div class="latency-list" id="latencyList">
-                <div class="no-data">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                    <p>Select a source region to view latencies</p>
-                </div>
-            </div>
         </aside>
 
         <div id="map"></div>
@@ -483,5 +962,48 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="regions.js"></script>
     <script src="app.js"></script>
+    <script>
+        // Mobile menu functionality
+        (function() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarClose = document.getElementById('sidebarClose');
+
+            function openSidebar() {
+                sidebar.classList.add('open');
+                sidebarOverlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', openSidebar);
+            }
+
+            if (sidebarClose) {
+                sidebarClose.addEventListener('click', closeSidebar);
+            }
+
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', closeSidebar);
+            }
+
+            // Close sidebar when selecting a region on mobile
+            const sourceRegion = document.getElementById('sourceRegion');
+            if (sourceRegion) {
+                sourceRegion.addEventListener('change', function() {
+                    if (window.innerWidth <= 768) {
+                        setTimeout(closeSidebar, 300);
+                    }
+                });
+            }
+        })();
+    </script>
 </body>
 </html>
