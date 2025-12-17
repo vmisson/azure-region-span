@@ -1,16 +1,50 @@
-// Azure Region Latency Map Application
+/**
+ * Azure Region Latency Map Application
+ * 
+ * This application displays Azure region latencies on an interactive map.
+ * It fetches latency data from an Azure Function API and visualizes
+ * round-trip times (RTT) between Azure regions using color-coded polylines.
+ * 
+ * Features:
+ * - Interactive world map with Azure region markers
+ * - Color-coded latency visualization (green = low, red = high)
+ * - Bidirectional latency measurements
+ * - Geographic filtering by region groups
+ * - Availability Zone status indicators
+ * 
+ * @author vmisson
+ * @see https://github.com/vmisson/azure-region-span
+ */
+
 class LatencyMapApp {
+    /**
+     * Creates a new LatencyMapApp instance.
+     * Initializes all properties and starts the application.
+     */
     constructor() {
+        /** @type {L.Map|null} Leaflet map instance */
         this.map = null;
+        /** @type {Object.<string, L.CircleMarker>} Region markers indexed by region ID */
         this.markers = {};
+        /** @type {L.Polyline[]} Active connection polylines */
         this.polylines = [];
+        /** @type {Object|null} Aggregated latency data from API */
         this.latencyData = null;
+        /** @type {string|null} Currently selected source region ID */
         this.selectedRegion = null;
+        /** @type {Set<string>} Set of selected destination region IDs */
+        this.selectedDestinations = new Set();
+        /** @type {string} Base URL for the latency API */
         this.apiBaseUrl = 'https://func-latency-api-001.azurewebsites.net/api';
         
         this.init();
     }
 
+    /**
+     * Initializes the application.
+     * Sets up the map, markers, event bindings, and loads latency data.
+     * @async
+     */
     async init() {
         this.updateProgress(0, 'Initializing map...');
         this.initMap();
@@ -29,10 +63,20 @@ class LatencyMapApp {
         this.hideLoading();
     }
 
+    /**
+     * Creates a promise that resolves after a specified delay.
+     * @param {number} ms - Delay in milliseconds
+     * @returns {Promise<void>}
+     */
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    /**
+     * Updates the loading progress indicator.
+     * @param {number} percent - Progress percentage (0-100)
+     * @param {string} text - Status text to display
+     */
     updateProgress(percent, text) {
         const progressBar = document.getElementById('progressBar');
         const loadingText = document.getElementById('loadingText');
@@ -43,6 +87,10 @@ class LatencyMapApp {
         if (loadingPercent) loadingPercent.textContent = `${percent}%`;
     }
 
+    /**
+     * Initializes the Leaflet map with dark theme tiles.
+     * Centers the map on the world view.
+     */
     initMap() {
         // Initialize the map centered on the world
         this.map = L.map('map', {
@@ -61,19 +109,28 @@ class LatencyMapApp {
         }).addTo(this.map);
     }
 
+    /**
+     * Creates circle markers for each Azure region on the map.
+     * Markers are color-coded based on Availability Zone support:
+     * - Green (#00ff88): Regions with Availability Zones
+     * - Blue (#0078d4): Regions without Availability Zones
+     */
     initRegionMarkers() {
         // Create markers for each Azure region
+        // Green (#00ff88) for regions with Availability Zones, Blue (#0078d4) for regions without
         Object.entries(AZURE_REGIONS).forEach(([regionId, region]) => {
+            const markerColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
             const marker = L.circleMarker(region.coordinates, {
                 radius: 8,
-                fillColor: '#0078d4',
+                fillColor: markerColor,
                 color: '#ffffff',
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.8
             });
 
-            marker.bindTooltip(region.displayName, {
+            const azStatus = region.hasAvailabilityZones ? '✓ Availability Zones' : '✗ No Availability Zones';
+            marker.bindTooltip(`${region.displayName}<br><span style="font-size: 0.8em; color: ${region.hasAvailabilityZones ? '#00ff88' : '#94a3b8'}">${azStatus}</span>`, {
                 permanent: false,
                 direction: 'top',
                 offset: [0, -10]
@@ -86,6 +143,10 @@ class LatencyMapApp {
         });
     }
 
+    /**
+     * Binds event listeners to UI controls.
+     * Sets up the region dropdown and initializes destination filters.
+     */
     bindEvents() {
         const sourceSelect = document.getElementById('sourceRegion');
         
@@ -102,8 +163,225 @@ class LatencyMapApp {
         sourceSelect.addEventListener('change', (e) => {
             this.selectRegion(e.target.value);
         });
+
+        // Initialize destination filter checkboxes
+        this.initDestinationFilter();
     }
 
+    /**
+     * Initializes the destination region filter UI.
+     * Creates checkboxes for each region and sets up filter controls.
+     */
+    initDestinationFilter() {
+        const checkboxContainer = document.getElementById('destinationCheckboxes');
+        const geoFiltersContainer = document.getElementById('geoFilters');
+        
+        // Initialize geo filter buttons
+        this.initGeoFilters(geoFiltersContainer);
+        
+        // Populate checkboxes for all regions, grouped by geo
+        Object.entries(AZURE_REGIONS)
+            .sort((a, b) => a[1].displayName.localeCompare(b[1].displayName))
+            .forEach(([regionId, region]) => {
+                // Add to selected destinations by default
+                this.selectedDestinations.add(regionId);
+                
+                const item = document.createElement('div');
+                item.className = 'destination-checkbox-item';
+                item.dataset.geoGroup = region.geoGroup;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `dest-${regionId}`;
+                checkbox.value = regionId;
+                checkbox.checked = true;
+                
+                const label = document.createElement('label');
+                label.htmlFor = `dest-${regionId}`;
+                label.textContent = region.displayName;
+                
+                item.appendChild(checkbox);
+                item.appendChild(label);
+                checkboxContainer.appendChild(item);
+                
+                // Event listener for checkbox
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        this.selectedDestinations.add(regionId);
+                    } else {
+                        this.selectedDestinations.delete(regionId);
+                    }
+                    this.updateFilterSummary();
+                    this.updateGeoButtonStates();
+                    this.refreshDisplay();
+                });
+            });
+
+        // Select All button
+        document.getElementById('selectAllDest').addEventListener('click', () => {
+            this.selectedDestinations.clear();
+            Object.keys(AZURE_REGIONS).forEach(regionId => {
+                this.selectedDestinations.add(regionId);
+            });
+            checkboxContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+            this.updateFilterSummary();
+            this.updateGeoButtonStates();
+            this.refreshDisplay();
+        });
+
+        // Clear All button
+        document.getElementById('selectNoneDest').addEventListener('click', () => {
+            this.selectedDestinations.clear();
+            checkboxContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            this.updateFilterSummary();
+            this.updateGeoButtonStates();
+            this.refreshDisplay();
+        });
+
+        // Toggle for individual regions list
+        const toggleBtn = document.getElementById('regionsListToggle');
+        toggleBtn.addEventListener('click', () => {
+            toggleBtn.classList.toggle('open');
+            checkboxContainer.classList.toggle('open');
+            const span = toggleBtn.querySelector('span');
+            span.textContent = checkboxContainer.classList.contains('open') 
+                ? 'Hide individual regions' 
+                : 'Show individual regions';
+        });
+
+        this.updateFilterSummary();
+    }
+
+    /**
+     * Initializes geographic group filter buttons.
+     * @param {HTMLElement} container - Container element for the buttons
+     */
+    initGeoFilters(container) {
+        // Count regions per geo group
+        const geoCounts = {};
+        Object.values(AZURE_REGIONS).forEach(region => {
+            const geo = region.geoGroup;
+            geoCounts[geo] = (geoCounts[geo] || 0) + 1;
+        });
+
+        // Create buttons for each geo group
+        Object.entries(GEO_GROUPS).forEach(([geoId, geoInfo]) => {
+            const count = geoCounts[geoId] || 0;
+            if (count === 0) return; // Skip empty geo groups
+            
+            const btn = document.createElement('button');
+            btn.className = 'geo-filter-btn active';
+            btn.dataset.geo = geoId;
+            btn.innerHTML = `
+                <span class="geo-label">${geoInfo.displayName}</span>
+                <span class="count">${count}</span>
+            `;
+            
+            btn.addEventListener('click', () => {
+                this.toggleGeoGroup(geoId);
+            });
+            
+            container.appendChild(btn);
+        });
+    }
+
+    /**
+     * Toggles selection of all regions in a geographic group.
+     * @param {string} geoId - Geographic group identifier
+     */
+    toggleGeoGroup(geoId) {
+        const checkboxContainer = document.getElementById('destinationCheckboxes');
+        const geoRegions = Object.entries(AZURE_REGIONS)
+            .filter(([_, region]) => region.geoGroup === geoId)
+            .map(([regionId, _]) => regionId);
+        
+        // Check if all regions in this geo group are currently selected
+        const allSelected = geoRegions.every(regionId => this.selectedDestinations.has(regionId));
+        
+        if (allSelected) {
+            // Deselect all in this geo group
+            geoRegions.forEach(regionId => {
+                this.selectedDestinations.delete(regionId);
+                const checkbox = document.getElementById(`dest-${regionId}`);
+                if (checkbox) checkbox.checked = false;
+            });
+        } else {
+            // Select all in this geo group
+            geoRegions.forEach(regionId => {
+                this.selectedDestinations.add(regionId);
+                const checkbox = document.getElementById(`dest-${regionId}`);
+                if (checkbox) checkbox.checked = true;
+            });
+        }
+        
+        this.updateFilterSummary();
+        this.updateGeoButtonStates();
+        this.refreshDisplay();
+    }
+
+    /**
+     * Updates the visual state of geographic filter buttons.
+     * Sets 'active' class if all regions selected, 'partial' if some selected.
+     */
+    updateGeoButtonStates() {
+        const geoButtons = document.querySelectorAll('.geo-filter-btn');
+        
+        geoButtons.forEach(btn => {
+            const geoId = btn.dataset.geo;
+            const geoRegions = Object.entries(AZURE_REGIONS)
+                .filter(([_, region]) => region.geoGroup === geoId)
+                .map(([regionId, _]) => regionId);
+            
+            const selectedCount = geoRegions.filter(regionId => this.selectedDestinations.has(regionId)).length;
+            const allSelected = selectedCount === geoRegions.length;
+            const someSelected = selectedCount > 0 && selectedCount < geoRegions.length;
+            
+            btn.classList.remove('active', 'partial');
+            if (allSelected) {
+                btn.classList.add('active');
+            } else if (someSelected) {
+                btn.classList.add('partial');
+            }
+        });
+    }
+
+    /**
+     * Updates the filter summary text showing selected region count.
+     */
+    updateFilterSummary() {
+        const summary = document.getElementById('filterSummary');
+        const total = Object.keys(AZURE_REGIONS).length;
+        const selected = this.selectedDestinations.size;
+        
+        if (selected === total) {
+            summary.textContent = 'All regions selected';
+        } else if (selected === 0) {
+            summary.textContent = 'No regions selected';
+        } else {
+            summary.textContent = `${selected} of ${total} regions selected`;
+        }
+    }
+
+    /**
+     * Refreshes the map display with current filter settings.
+     * Redraws connections and updates the latency list.
+     */
+    refreshDisplay() {
+        if (this.selectedRegion) {
+            this.drawConnections(this.selectedRegion);
+            this.updateLatencyList(this.selectedRegion);
+        }
+    }
+
+    /**
+     * Fetches and processes latency data from the API.
+     * Falls back to demo data if the API is unavailable.
+     * @async
+     */
     async loadLatencyData() {
         try {
             this.updateProgress(55, 'Connecting to API...');
@@ -131,6 +409,12 @@ class LatencyMapApp {
         }
     }
 
+    /**
+     * Aggregates raw latency measurements into a structured format.
+     * Keeps only the latest measurement per connection and counts total measurements.
+     * @param {Array} rawData - Raw latency measurements from API
+     * @returns {{regions: string[], connections: Object[]}} Aggregated data
+     */
     aggregateLatencyData(rawData) {
         const latencyMap = new Map();
         const regions = new Set();
@@ -178,6 +462,12 @@ class LatencyMapApp {
         };
     }
 
+    /**
+     * Parses a latency string into milliseconds.
+     * Handles both 'ms' and 'us' (microseconds) units.
+     * @param {string} latencyStr - Latency string (e.g., "10.5 ms" or "500 us")
+     * @returns {number|null} Latency in milliseconds, or null if invalid
+     */
     parseLatency(latencyStr) {
         if (!latencyStr) return null;
         
@@ -197,6 +487,11 @@ class LatencyMapApp {
         return value; // Already in milliseconds
     }
 
+    /**
+     * Generates demo latency data for testing when API is unavailable.
+     * Calculates approximate latencies based on geographic distance.
+     * @returns {{regions: string[], connections: Object[]}} Demo data
+     */
     generateDemoData() {
         // Generate demo data for testing when API is not available
         const regions = Object.keys(AZURE_REGIONS);
@@ -233,6 +528,15 @@ class LatencyMapApp {
         };
     }
 
+    /**
+     * Calculates the great-circle distance between two coordinates.
+     * Uses the Haversine formula.
+     * @param {number} lat1 - Latitude of first point
+     * @param {number} lon1 - Longitude of first point
+     * @param {number} lat2 - Latitude of second point
+     * @param {number} lon2 - Longitude of second point
+     * @returns {number} Distance in kilometers
+     */
     calculateDistance(lat1, lon1, lat2, lon2) {
         // Haversine formula to calculate distance in km
         const R = 6371;
@@ -245,10 +549,19 @@ class LatencyMapApp {
         return R * c;
     }
 
+    /**
+     * Converts degrees to radians.
+     * @param {number} deg - Angle in degrees
+     * @returns {number} Angle in radians
+     */
     toRad(deg) {
         return deg * (Math.PI / 180);
     }
 
+    /**
+     * Updates the statistics panel with current data.
+     * Shows region count, connection count, and average latency.
+     */
     updateStats() {
         if (!this.latencyData) return;
 
@@ -266,9 +579,21 @@ class LatencyMapApp {
         document.getElementById('statAvgLatency').textContent = `${avgLatency.toFixed(2)} ms`;
     }
 
+    /**
+     * Selects a source region and displays its connections.
+     * Clicking the same region again deselects it.
+     * @param {string} regionId - Region identifier to select
+     */
     selectRegion(regionId) {
         if (!regionId) {
             this.clearSelection();
+            return;
+        }
+
+        // If clicking on the same region, deselect it
+        if (this.selectedRegion === regionId) {
+            this.clearSelection();
+            document.getElementById('sourceRegion').value = '';
             return;
         }
 
@@ -277,23 +602,26 @@ class LatencyMapApp {
         // Update dropdown
         document.getElementById('sourceRegion').value = regionId;
 
-        // Reset all markers
+        // Reset all markers to their AZ-based colors
         Object.entries(this.markers).forEach(([id, marker]) => {
+            const region = AZURE_REGIONS[id];
+            const defaultColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
             marker.setStyle({
                 radius: 8,
-                fillColor: '#0078d4'
+                fillColor: defaultColor
             });
         });
 
-        // Highlight selected marker
+        // Highlight selected marker (keep AZ color, just increase size)
         if (this.markers[regionId]) {
+            const region = AZURE_REGIONS[regionId];
+            const selectedColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
             this.markers[regionId].setStyle({
                 radius: 12,
-                fillColor: '#00ff88'
+                fillColor: selectedColor
             });
 
             // Center map on selected region
-            const region = AZURE_REGIONS[regionId];
             this.map.setView(region.coordinates, 3, { animate: true });
         }
 
@@ -302,14 +630,20 @@ class LatencyMapApp {
         this.updateLatencyList(regionId);
     }
 
+    /**
+     * Clears the current region selection.
+     * Resets all markers and removes connection lines.
+     */
     clearSelection() {
         this.selectedRegion = null;
         
-        // Reset all markers
-        Object.values(this.markers).forEach(marker => {
+        // Reset all markers to their AZ-based colors
+        Object.entries(this.markers).forEach(([id, marker]) => {
+            const region = AZURE_REGIONS[id];
+            const defaultColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
             marker.setStyle({
                 radius: 8,
-                fillColor: '#0078d4'
+                fillColor: defaultColor
             });
         });
 
@@ -327,11 +661,19 @@ class LatencyMapApp {
         `;
     }
 
+    /**
+     * Removes all connection polylines from the map.
+     */
     clearPolylines() {
         this.polylines.forEach(line => this.map.removeLayer(line));
         this.polylines = [];
     }
 
+    /**
+     * Draws connection lines from the source region to all destinations.
+     * Lines are color-coded based on RTT values.
+     * @param {string} sourceRegion - Source region identifier
+     */
     drawConnections(sourceRegion) {
         this.clearPolylines();
 
@@ -341,13 +683,18 @@ class LatencyMapApp {
         if (!sourceCoords) return;
 
         // Find all unique peer regions (where selected region is source OR destination)
+        // AND filter by selected destinations
         const peerRegions = new Set();
         this.latencyData.connections.forEach(conn => {
             if (conn.source === sourceRegion && conn.destination !== sourceRegion) {
-                peerRegions.add(conn.destination);
+                if (this.selectedDestinations.has(conn.destination)) {
+                    peerRegions.add(conn.destination);
+                }
             }
             if (conn.destination === sourceRegion && conn.source !== sourceRegion) {
-                peerRegions.add(conn.source);
+                if (this.selectedDestinations.has(conn.source)) {
+                    peerRegions.add(conn.source);
+                }
             }
         });
 
@@ -418,6 +765,11 @@ class LatencyMapApp {
         });
     }
 
+    /**
+     * Returns a color based on one-way latency value.
+     * @param {number|null} latency - Latency in milliseconds
+     * @returns {string} Hex color code
+     */
     getLatencyColor(latency) {
         if (latency === null || latency === undefined) return '#666666';
         if (latency < 10) return '#00ff88';   // Excellent
@@ -427,6 +779,11 @@ class LatencyMapApp {
         return '#ff4444';                      // Bad
     }
 
+    /**
+     * Returns a color based on round-trip time value.
+     * @param {number|null} rtt - RTT in milliseconds
+     * @returns {string} Hex color code
+     */
     getRttColor(rtt) {
         if (rtt === null || rtt === undefined) return '#666666';
         if (rtt < 20) return '#00ff88';   // Excellent
@@ -436,6 +793,11 @@ class LatencyMapApp {
         return '#ff4444';                  // Very High
     }
 
+    /**
+     * Returns a CSS class based on round-trip time value.
+     * @param {number|null} rtt - RTT in milliseconds
+     * @returns {string} CSS class name (excellent, good, fair, poor, bad)
+     */
     getRttClass(rtt) {
         if (rtt === null || rtt === undefined) return '';
         if (rtt < 20) return 'excellent';
@@ -445,6 +807,11 @@ class LatencyMapApp {
         return 'bad';
     }
 
+    /**
+     * Returns a CSS class based on one-way latency value.
+     * @param {number|null} latency - Latency in milliseconds
+     * @returns {string} CSS class name (excellent, good, fair, poor, bad)
+     */
     getLatencyClass(latency) {
         if (latency === null || latency === undefined) return '';
         if (latency < 10) return 'excellent';
@@ -454,6 +821,11 @@ class LatencyMapApp {
         return 'bad';
     }
 
+    /**
+     * Updates the latency list sidebar with connections from the source region.
+     * Shows bidirectional latency data and measurement counts.
+     * @param {string} sourceRegion - Source region identifier
+     */
     updateLatencyList(sourceRegion) {
         const listContainer = document.getElementById('latencyList');
         
@@ -463,13 +835,18 @@ class LatencyMapApp {
         }
 
         // Find all unique peer regions (where selected region is source OR destination)
+        // AND filter by selected destinations
         const peerRegions = new Set();
         this.latencyData.connections.forEach(conn => {
             if (conn.source === sourceRegion && conn.destination !== sourceRegion) {
-                peerRegions.add(conn.destination);
+                if (this.selectedDestinations.has(conn.destination)) {
+                    peerRegions.add(conn.destination);
+                }
             }
             if (conn.destination === sourceRegion && conn.source !== sourceRegion) {
-                peerRegions.add(conn.source);
+                if (this.selectedDestinations.has(conn.source)) {
+                    peerRegions.add(conn.source);
+                }
             }
         });
 
@@ -564,6 +941,9 @@ class LatencyMapApp {
         });
     }
 
+    /**
+     * Hides the loading overlay.
+     */
     hideLoading() {
         document.getElementById('loading').classList.add('hidden');
     }
