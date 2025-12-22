@@ -3,8 +3,7 @@ name: Run Test for Next Region
 on:
   workflow_dispatch:  # Allow manual trigger
   schedule:
-    - cron: '0 0,3,6,9,12,15,18,21 * * *'   # Run at 0:00, 3:00, 6:00, etc.
-    - cron: '30 1,4,7,10,13,16,19,22 * * *' # Run at 1:30, 4:30, 7:30, etc.
+    - cron: '0 */2 * * *'   # Run every 2 hours
 
 jobs:
   infrastructure:
