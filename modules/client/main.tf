@@ -1,12 +1,13 @@
 module "subnet" {
-  source               = "azurerm/resources/azure//modules/subnet"
-  location             = var.location
-  environment          = "cli"
-  workload             = "netperf"
-  instance             = "001"
-  resource_group_name  = data.azurerm_resource_group.this.name
-  virtual_network_name = data.azurerm_virtual_network.this.name
-  address_prefixes     = [data.azurerm_virtual_network.this.address_space[0]]
+  source                            = "azurerm/resources/azure//modules/subnet"
+  location                          = var.location
+  environment                       = "cli"
+  workload                          = "netperf"
+  instance                          = "001"
+  private_endpoint_network_policies = "Disabled"
+  resource_group_name               = data.azurerm_resource_group.this.name
+  virtual_network_name              = data.azurerm_virtual_network.this.name
+  address_prefixes                  = [data.azurerm_virtual_network.this.address_space[0]]
 }
 
 module "linux_virtual_machine_client" {
