@@ -19,6 +19,7 @@ module "linux_virtual_machine_client" {
   resource_group_name = data.azurerm_resource_group.this.name
   subnet_id           = module.subnet.id
   size                = var.size
+  priority            = "Spot"
   #zone                          = lookup(var.locationMappings[var.location], "az${count.index + 1}")
   custom_data                   = base64encode(file("${path.module}/cloud-init-client.txt"))
   enable_accelerated_networking = true

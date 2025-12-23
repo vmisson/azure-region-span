@@ -28,6 +28,7 @@ module "linux_virtual_machine_server" {
   resource_group_name = data.azurerm_resource_group.this.name
   subnet_id           = module.subnet.id
   size                = var.size
+  priority            = "Spot"
   #zone                          = lookup(local.locationMappings[var.location], "az${count.index + 1}")
   custom_data = base64encode(file("${path.module}/cloud-init-server.txt"))
   tags = {
