@@ -216,6 +216,28 @@ azure-region-bench/
 | `storage_account_name` | Storage Account name | `sanetprdfrc002` |
 | `storage_account_resource_group` | Storage Account resource group | `rg-net-prd-frc-001` |
 
+## ❓ FAQ
+
+### What is the difference between this project and the official Azure network latency data?
+
+Microsoft publishes [round-trip latency statistics](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency) between Azure regions. Here's how this project differs:
+
+| Aspect | Official Microsoft Data | This Project |
+|--------|------------------------|--------------|
+| **Data source** | Internal backbone network probes | Real VM-to-VM measurements using `qperf` over VNet peering |
+| **Metric** | P50 (median) over a 30-day window | Raw individual measurements with historical trends |
+| **Update frequency** | Every 6–9 months (static snapshot) | Continuous — automated cron-based tests, always current |
+| **Perspective** | Infrastructure-level (backbone) | Customer-level (actual VM workloads over private peering) |
+| **Visualization** | Static tables/CSV on a docs page | Interactive map, heatmap matrix, sparkline charts, filtering, CSV export |
+| **Customization** | None — read-only published data | Deploy your own regions in your own subscription |
+
+**In short**: The official page is a static reference of backbone-level median latency. This project provides **live, customer-perspective measurements** with rich interactive visualization — useful for validating real-world performance against Microsoft's published numbers.
+
+### How to provide feedback?
+
+- If you want new features or found a bug, please [create an issue](https://github.com/vmisson/azure-region-span/issues) on the repository.
+- If you like this project, please ⭐ star the [GitHub repository](https://github.com/vmisson/azure-region-span) — it helps others discover it!
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
