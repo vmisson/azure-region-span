@@ -9,7 +9,7 @@
  * - coordinates: [latitude, longitude] for map placement
  * - country: Country where the region is located
  * - geoGroup: Geographic grouping for filtering
- * - hasAvailabilityZones: Whether the region supports Availability Zones
+ * - regionType: Region classification ("recommended" or "alternate")
  * 
  * @author vmisson
  * @see https://github.com/vmisson/azure-region-span
@@ -32,7 +32,7 @@ const GEO_GROUPS = {
 
 /**
  * Azure region definitions with coordinates and metadata.
- * @type {Object.<string, {displayName: string, coordinates: number[], country: string, geoGroup: string, hasAvailabilityZones: boolean}>}
+ * @type {Object.<string, {displayName: string, coordinates: number[], country: string, geoGroup: string, regionType: string}>}
  */
 const AZURE_REGIONS = {
     // United States
@@ -42,7 +42,7 @@ const AZURE_REGIONS = {
         city: "Virginia",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "eastus2": {
         displayName: "East US 2",
@@ -50,7 +50,7 @@ const AZURE_REGIONS = {
         city: "Virginia",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "other"
     },
     "centralus": {
         displayName: "Central US",
@@ -58,7 +58,7 @@ const AZURE_REGIONS = {
         city: "Iowa",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "northcentralus": {
         displayName: "North Central US",
@@ -66,7 +66,7 @@ const AZURE_REGIONS = {
         city: "Illinois",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "southcentralus": {
         displayName: "South Central US",
@@ -74,7 +74,7 @@ const AZURE_REGIONS = {
         city: "Texas",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "other"
     },
     "westcentralus": {
         displayName: "West Central US",
@@ -82,7 +82,7 @@ const AZURE_REGIONS = {
         city: "Wyoming",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "westus": {
         displayName: "West US",
@@ -90,7 +90,7 @@ const AZURE_REGIONS = {
         city: "California",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "westus2": {
         displayName: "West US 2",
@@ -98,7 +98,7 @@ const AZURE_REGIONS = {
         city: "Washington",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "westus3": {
         displayName: "West US 3",
@@ -106,7 +106,7 @@ const AZURE_REGIONS = {
         city: "Phoenix",
         country: "United States",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "other"
     },
     // Canada
     "canadacentral": {
@@ -115,7 +115,7 @@ const AZURE_REGIONS = {
         city: "Toronto",
         country: "Canada",
         geoGroup: "northamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "canadaeast": {
         displayName: "Canada East",
@@ -123,7 +123,7 @@ const AZURE_REGIONS = {
         city: "Quebec",
         country: "Canada",
         geoGroup: "northamerica",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     // Latin America
     "brazilsouth": {
@@ -132,7 +132,7 @@ const AZURE_REGIONS = {
         city: "São Paulo",
         country: "Brazil",
         geoGroup: "latinamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "chilecentral": {
         displayName: "Chile Central",
@@ -140,7 +140,7 @@ const AZURE_REGIONS = {
         city: "Santiago",
         country: "Chile",
         geoGroup: "latinamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "mexicocentral": {
         displayName: "Mexico Central",
@@ -148,7 +148,7 @@ const AZURE_REGIONS = {
         city: "Querétaro",
         country: "Mexico",
         geoGroup: "latinamerica",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     // Europe
     "northeurope": {
@@ -157,7 +157,7 @@ const AZURE_REGIONS = {
         city: "Dublin",
         country: "Ireland",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "westeurope": {
         displayName: "West Europe",
@@ -165,7 +165,7 @@ const AZURE_REGIONS = {
         city: "Amsterdam",
         country: "Netherlands",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "uksouth": {
         displayName: "UK South",
@@ -173,7 +173,7 @@ const AZURE_REGIONS = {
         city: "London",
         country: "United Kingdom",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "ukwest": {
         displayName: "UK West",
@@ -181,7 +181,7 @@ const AZURE_REGIONS = {
         city: "Cardiff",
         country: "United Kingdom",
         geoGroup: "europe",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "francecentral": {
         displayName: "France Central",
@@ -189,7 +189,7 @@ const AZURE_REGIONS = {
         city: "Paris",
         country: "France",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "germanywestcentral": {
         displayName: "Germany West Central",
@@ -197,7 +197,7 @@ const AZURE_REGIONS = {
         city: "Frankfurt",
         country: "Germany",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "switzerlandnorth": {
         displayName: "Switzerland North",
@@ -205,7 +205,7 @@ const AZURE_REGIONS = {
         city: "Zurich",
         country: "Switzerland",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "swedencentral": {
         displayName: "Sweden Central",
@@ -213,7 +213,7 @@ const AZURE_REGIONS = {
         city: "Gävle",
         country: "Sweden",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "norwayeast": {
         displayName: "Norway East",
@@ -221,7 +221,7 @@ const AZURE_REGIONS = {
         city: "Oslo",
         country: "Norway",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "italynorth": {
         displayName: "Italy North",
@@ -229,7 +229,7 @@ const AZURE_REGIONS = {
         city: "Milan",
         country: "Italy",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "polandcentral": {
         displayName: "Poland Central",
@@ -237,7 +237,7 @@ const AZURE_REGIONS = {
         city: "Warsaw",
         country: "Poland",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "spaincentral": {
         displayName: "Spain Central",
@@ -245,7 +245,7 @@ const AZURE_REGIONS = {
         city: "Madrid",
         country: "Spain",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "belgiumcentral": {
         displayName: "Belgium Central",
@@ -253,7 +253,7 @@ const AZURE_REGIONS = {
         city: "Brussels",
         country: "Belgium",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "austriaeast": {
         displayName: "Austria East",
@@ -261,7 +261,7 @@ const AZURE_REGIONS = {
         city: "Vienna",
         country: "Austria",
         geoGroup: "europe",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     // Australia & New Zealand
     "australiaeast": {
@@ -270,7 +270,7 @@ const AZURE_REGIONS = {
         city: "New South Wales",
         country: "Australia",
         geoGroup: "oceania",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "australiasoutheast": {
         displayName: "Australia Southeast",
@@ -278,7 +278,7 @@ const AZURE_REGIONS = {
         city: "Victoria",
         country: "Australia",
         geoGroup: "oceania",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "newzealandnorth": {
         displayName: "New Zealand North",
@@ -286,7 +286,7 @@ const AZURE_REGIONS = {
         city: "Auckland",
         country: "New Zealand",
         geoGroup: "oceania",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     // Asia Pacific
     "southeastasia": {
@@ -295,7 +295,7 @@ const AZURE_REGIONS = {
         city: "Singapore",
         country: "Singapore",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "eastasia": {
         displayName: "East Asia",
@@ -303,7 +303,7 @@ const AZURE_REGIONS = {
         city: "Hong Kong",
         country: "Hong Kong SAR",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "japaneast": {
         displayName: "Japan East",
@@ -311,7 +311,7 @@ const AZURE_REGIONS = {
         city: "Tokyo, Saitama",
         country: "Japan",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "japanwest": {
         displayName: "Japan West",
@@ -319,7 +319,7 @@ const AZURE_REGIONS = {
         city: "Osaka",
         country: "Japan",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "koreacentral": {
         displayName: "Korea Central",
@@ -327,7 +327,7 @@ const AZURE_REGIONS = {
         city: "Seoul",
         country: "South Korea",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "koreasouth": {
         displayName: "Korea South",
@@ -335,7 +335,7 @@ const AZURE_REGIONS = {
         city: "Busan",
         country: "South Korea",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "indonesiacentral": {
         displayName: "Indonesia Central",
@@ -343,7 +343,7 @@ const AZURE_REGIONS = {
         city: "Jakarta",
         country: "Indonesia",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "malaysiawest": {
         displayName: "Malaysia West",
@@ -351,7 +351,7 @@ const AZURE_REGIONS = {
         city: "Kuala Lumpur",
         country: "Malaysia",
         geoGroup: "asiapacific",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     // India
     "centralindia": {
@@ -360,7 +360,7 @@ const AZURE_REGIONS = {
         city: "Pune",
         country: "India",
         geoGroup: "india",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "southindia": {
         displayName: "South India",
@@ -368,7 +368,7 @@ const AZURE_REGIONS = {
         city: "Chennai",
         country: "India",
         geoGroup: "india",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     "westindia": {
         displayName: "West India",
@@ -376,7 +376,7 @@ const AZURE_REGIONS = {
         city: "Mumbai",
         country: "India",
         geoGroup: "india",
-        hasAvailabilityZones: false
+        regionType: "other"
     },
     // Middle East
     "uaenorth": {
@@ -385,7 +385,7 @@ const AZURE_REGIONS = {
         city: "Dubai",
         country: "United Arab Emirates",
         geoGroup: "middleeast",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "qatarcentral": {
         displayName: "Qatar Central",
@@ -393,7 +393,7 @@ const AZURE_REGIONS = {
         city: "Doha",
         country: "Qatar",
         geoGroup: "middleeast",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     "israelcentral": {
         displayName: "Israel Central",
@@ -401,7 +401,7 @@ const AZURE_REGIONS = {
         city: "Tel Aviv",
         country: "Israel",
         geoGroup: "middleeast",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     },
     // Africa
     "southafricanorth": {
@@ -410,6 +410,6 @@ const AZURE_REGIONS = {
         city: "Johannesburg",
         country: "South Africa",
         geoGroup: "africa",
-        hasAvailabilityZones: true
+        regionType: "recommended"
     }
 };

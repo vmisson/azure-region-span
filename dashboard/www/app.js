@@ -111,15 +111,15 @@ class LatencyMapApp {
 
     /**
      * Creates circle markers for each Azure region on the map.
-     * Markers are color-coded based on Availability Zone support:
-     * - Green (#00ff88): Regions with Availability Zones
-     * - Blue (#0078d4): Regions without Availability Zones
+     * Markers are color-coded based on region type:
+     * - Green (#00ff88): Recommended regions
+     * - Blue (#0078d4): Alternate regions
      */
     initRegionMarkers() {
         // Create markers for each Azure region
-        // Green (#00ff88) for regions with Availability Zones, Blue (#0078d4) for regions without
+        // Green (#00ff88) for recommended regions, Blue (#0078d4) for alternate regions
         Object.entries(AZURE_REGIONS).forEach(([regionId, region]) => {
-            const markerColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
+            const markerColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
             const marker = L.circleMarker(region.coordinates, {
                 radius: 8,
                 fillColor: markerColor,
@@ -129,8 +129,8 @@ class LatencyMapApp {
                 fillOpacity: 0.8
             });
 
-            const azStatus = region.hasAvailabilityZones ? '✓ Availability Zones' : '✗ No Availability Zones';
-            marker.bindTooltip(`${region.displayName}<br><span style="font-size: 0.8em; color: ${region.hasAvailabilityZones ? '#00ff88' : '#94a3b8'}">${azStatus}</span>`, {
+            const regionStatus = region.regionType === 'recommended' ? 'Recommended' : 'Other';
+            marker.bindTooltip(`${region.displayName}<br><span style="font-size: 0.8em; color: ${region.regionType === 'recommended' ? '#00ff88' : '#0078d4'}">${regionStatus}</span>`, {
                 permanent: false,
                 direction: 'top',
                 offset: [0, -10]
@@ -662,20 +662,20 @@ class LatencyMapApp {
         // Update dropdown
         document.getElementById('sourceRegion').value = regionId;
 
-        // Reset all markers to their AZ-based colors
+        // Reset all markers to their region type colors
         Object.entries(this.markers).forEach(([id, marker]) => {
             const region = AZURE_REGIONS[id];
-            const defaultColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
+            const defaultColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
             marker.setStyle({
                 radius: 8,
                 fillColor: defaultColor
             });
         });
 
-        // Highlight selected marker (keep AZ color, just increase size)
+        // Highlight selected marker (keep region type color, just increase size)
         if (this.markers[regionId]) {
             const region = AZURE_REGIONS[regionId];
-            const selectedColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
+            const selectedColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
             this.markers[regionId].setStyle({
                 radius: 12,
                 fillColor: selectedColor
@@ -697,10 +697,10 @@ class LatencyMapApp {
     clearSelection() {
         this.selectedRegion = null;
         
-        // Reset all markers to their AZ-based colors
+        // Reset all markers to their region type colors
         Object.entries(this.markers).forEach(([id, marker]) => {
             const region = AZURE_REGIONS[id];
-            const defaultColor = region.hasAvailabilityZones ? '#00ff88' : '#0078d4';
+            const defaultColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
             marker.setStyle({
                 radius: 8,
                 fillColor: defaultColor

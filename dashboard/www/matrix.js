@@ -139,22 +139,24 @@ class MatrixView {
     }
 
     _getColor(latency) {
-        // Thresholds match getLatencyColor() in app.js (one-way: RTT/2)
+        // One-way thresholds = RTT/2. 5 application-tier bands:
+        // 1 Ultra-critical (RTT<10) | 2 Real-time (RTT<50) | 3 Interactive (RTT<150)
+        // 4 Standard Web/SaaS (RTT<500) | 5 Asynchronous / Batch (RTT≥500)
         if (latency === null) return '#2a2a3e';
-        if (latency < 25) return '#1a5c2a';   // excellent
-        if (latency < 50) return '#5c5c1a';   // good
-        if (latency < 100) return '#6c3a0a';  // fair
-        if (latency < 150) return '#6c1a1a';  // high
-        return '#4c0a0a';                      // very high
+        if (latency < 5)   return '#0d4a1e';  // 1 Ultra-critical
+        if (latency < 25)  return '#1a5c2a';  // 2 Real-time interactive
+        if (latency < 75)  return '#5c5c1a';  // 3 Interactive user workloads
+        if (latency < 200) return '#6c3a0a';  // 4 Standard Web / SaaS
+        return '#4c0a0a';                      // 5 Asynchronous / Batch
     }
 
     _getTextColor(latency) {
         if (latency === null) return '#555';
-        if (latency < 25) return '#a6e3a1';
-        if (latency < 50) return '#f9e2af';
-        if (latency < 100) return '#fab387';
-        if (latency < 150) return '#f38ba8';
-        return '#e06080';
+        if (latency < 5)   return '#b6e3c1';
+        if (latency < 25)  return '#a6e3a1';
+        if (latency < 75)  return '#f9e2af';
+        if (latency < 200) return '#fab387';
+        return '#f38ba8';
     }
 
     _regionName(id) {
@@ -306,26 +308,61 @@ class MatrixView {
 
         // Legend
         const legend = document.createElement('div');
-        legend.style.cssText = 'display:flex;gap:10px;align-items:center;font-size:0.75rem;';
+        legend.style.cssText = 'display:flex;gap:8px;align-items:center;font-size:0.75rem;flex-wrap:wrap;';
         const legendTitle = document.createElement('span');
         legendTitle.style.cssText = 'color:#94a3b8;font-weight:600;';
         legendTitle.textContent = 'one-way (ms):';
-        legendTitle.title = 'Values are one-way latency from source → destination, not round-trip time (RTT)';
+        legendTitle.title = 'Values are one-way latency from source → destination (RTT / 2). Bands map to typical cloud-application latency classes.';
         legend.appendChild(legendTitle);
         const bands = [
-            { color: '#1a5c2a', text: '#a6e3a1', label: '< 25' },
-            { color: '#5c5c1a', text: '#f9e2af', label: '25–49' },
-            { color: '#6c3a0a', text: '#fab387', label: '50–99' },
-            { color: '#6c1a1a', text: '#f38ba8', label: '100–149' },
-            { color: '#4c0a0a', text: '#e06080', label: '≥ 150' },
+            {
+                color: '#0d4a1e', text: '#b6e3c1', label: 'Critical · <5',
+                title: 'Critical (RTT < 10 ms)\n' +
+                       '• High-Frequency Trading\n' +
+                       '• Cloud OLTP databases (Azure SQL, SAP HANA Cloud)\n' +
+                       '• In-memory caches (Redis, ElastiCache, Memcached)',
+            },
+            {
+                color: '#1a5c2a', text: '#a6e3a1', label: 'Real-time · <25',
+                title: 'Real-time interactive (RTT < 50 ms)\n' +
+                       '• Cloud gaming\n' +
+                       '• VR/AR streaming\n' ,
+            },
+            {
+                color: '#5c5c1a', text: '#f9e2af', label: 'Interactive · <75',
+                title: 'Interactive user workloads (RTT < 150 ms)\n' +
+                       '• VDI / DaaS (Azure Virtual Desktop, Windows 365)\n' +
+                       '• SAP GUI / S/4HANA\n' +
+                       '• VoIP & video conferencing (Microsoft Teams, Zoom)\n',
+            },
+            {
+                color: '#6c3a0a', text: '#fab387', label: 'Standard · <200',
+                title: 'Standard Web / SaaS (RTT < 300–500 ms)\n' +
+                       '• E-commerce (Shopify)\n' +
+                       '• Salesforce, Workday, HubSpot\n' +
+                       '• Microsoft 365, Google Workspace\n' +
+                       '• REST APIs (Stripe, Twilio, GitHub, Google Maps)\n' +
+                       '• WordPress / Magento, Slack',
+            },
+            {
+                color: '#4c0a0a', text: '#f38ba8', label: 'Async · ≥200',
+                title: 'Asynchronous / Batch (RTT ≳ seconds → minutes)\n' +
+                       '• Cloud backup (Azure Backup)\n' +
+                       '• File sync (OneDrive, Google Drive, Dropbox)\n' +
+                       '• Data Warehouses (Snowflake, BigQuery, Redshift)\n' +
+                       '• CI/CD pipelines (GitHub Actions, GitLab CI)\n' +
+                       '• Email (SMTP/IMAP)\n' +
+                       '• LLM APIs (OpenAI, Anthropic Claude)',
+            },
         ];
         bands.forEach(b => {
             const item = document.createElement('span');
-            item.style.cssText = `display:inline-flex;align-items:center;gap:3px;`;
+            item.style.cssText = 'display:inline-flex;align-items:center;gap:4px;cursor:help;';
+            item.title = b.title;
             const swatch = document.createElement('span');
             swatch.style.cssText = `width:12px;height:12px;border-radius:2px;background:${b.color};display:inline-block;`;
             const lbl = document.createElement('span');
-            lbl.style.color = '#94a3b8';
+            lbl.style.color = b.text;
             lbl.textContent = b.label;
             item.appendChild(swatch);
             item.appendChild(lbl);
@@ -370,6 +407,11 @@ class MatrixView {
             const innerDiv = document.createElement('div');
             innerDiv.className = 'matrix-col-header-text';
             innerDiv.textContent = this._regionName(dst);
+            // Color based on region type
+            const dstInfo = this._regionInfo(dst);
+            if (dstInfo) {
+                innerDiv.style.color = dstInfo.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+            }
             th.appendChild(innerDiv);
             th.addEventListener('mouseenter', e => this._showRegionTooltip(dst, e));
             th.addEventListener('mouseleave', () => this._hideTooltip());
@@ -385,6 +427,11 @@ class MatrixView {
             const rowHeader = document.createElement('td');
             rowHeader.className = 'matrix-row-header';
             rowHeader.textContent = this._regionName(src);
+            // Color based on region type
+            const srcInfo = this._regionInfo(src);
+            if (srcInfo) {
+                rowHeader.style.color = srcInfo.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+            }
             rowHeader.addEventListener('mouseenter', e => this._showRegionTooltip(src, e));
             rowHeader.addEventListener('mouseleave', () => this._hideTooltip());
             row.appendChild(rowHeader);
@@ -427,13 +474,13 @@ class MatrixView {
             this._tooltipEl.className = 'matrix-tooltip';
             document.body.appendChild(this._tooltipEl);
         }
-        const az = info.hasAvailabilityZones ? '✅ Yes' : '❌ No';
+        const regionTypeLabel = info.regionType === 'recommended' ? 'Recommended' : 'Other';
         const city = info.city ? `${info.city}, ` : '';
         this._tooltipEl.innerHTML = `
             <strong>${info.displayName}</strong><br>
             📍 ${city}${info.country}<br>
             🌍 ${this._geoGroupName(info.geoGroup)}<br>
-            🏢 AZ Support: ${az}
+            🏷️ Type: ${regionTypeLabel}
         `;
         this._tooltipEl.style.display = 'block';
         this._positionFloating(this._tooltipEl, event);
