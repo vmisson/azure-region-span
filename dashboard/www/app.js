@@ -827,58 +827,62 @@ class LatencyMapApp {
 
     /**
      * Returns a color based on one-way latency value.
+     * Aligned with matrix view bands.
      * @param {number|null} latency - Latency in milliseconds
      * @returns {string} Hex color code
      */
     getLatencyColor(latency) {
-        if (latency === null || latency === undefined) return '#666666';
-        if (latency < 25) return '#00ff88';   // Excellent
-        if (latency < 50) return '#88ff00';   // Good
-        if (latency < 100) return '#ffdd00';  // Fair
-        if (latency < 150) return '#ff8800';  // High
-        return '#ff4444';                      // Very High
+        if (latency === null || latency === undefined) return '#555555';
+        if (latency < 5)   return '#22c55e';  // Critical - green
+        if (latency < 25)  return '#84cc16';  // Real-time - lime
+        if (latency < 75)  return '#eab308';  // Interactive - yellow
+        if (latency < 200) return '#f97316';  // Standard - orange
+        return '#ef4444';                      // Async - red
     }
 
     /**
      * Returns a color based on round-trip time value.
+     * Aligned with matrix view: one-way thresholds × 2 = RTT thresholds.
      * @param {number|null} rtt - RTT in milliseconds
      * @returns {string} Hex color code
      */
     getRttColor(rtt) {
-        if (rtt === null || rtt === undefined) return '#666666';
-        if (rtt < 50) return '#00ff88';   // Excellent
-        if (rtt < 100) return '#88ff00';  // Good
-        if (rtt < 200) return '#ffdd00';  // Fair
-        if (rtt < 300) return '#ff8800';  // High
-        return '#ff4444';                  // Very High
+        if (rtt === null || rtt === undefined) return '#555555';
+        if (rtt < 10)  return '#22c55e';  // Critical (RTT < 10 ms) - green
+        if (rtt < 50)  return '#84cc16';  // Real-time (RTT < 50 ms) - lime
+        if (rtt < 150) return '#eab308';  // Interactive (RTT < 150 ms) - yellow
+        if (rtt < 400) return '#f97316';  // Standard (RTT < 400 ms) - orange
+        return '#ef4444';                  // Async (RTT ≥ 400 ms) - red
     }
 
     /**
      * Returns a CSS class based on round-trip time value.
+     * Aligned with matrix view bands (RTT = 2 × one-way).
      * @param {number|null} rtt - RTT in milliseconds
-     * @returns {string} CSS class name (excellent, good, fair, poor, bad)
+     * @returns {string} CSS class name (critical, realtime, interactive, standard, async)
      */
     getRttClass(rtt) {
         if (rtt === null || rtt === undefined) return '';
-        if (rtt < 50) return 'excellent';
-        if (rtt < 100) return 'good';
-        if (rtt < 200) return 'fair';
-        if (rtt < 300) return 'poor';
-        return 'bad';
+        if (rtt < 10)  return 'critical';
+        if (rtt < 50)  return 'realtime';
+        if (rtt < 150) return 'interactive';
+        if (rtt < 400) return 'standard';
+        return 'async';
     }
 
     /**
      * Returns a CSS class based on one-way latency value.
+     * Aligned with matrix view bands.
      * @param {number|null} latency - Latency in milliseconds
-     * @returns {string} CSS class name (excellent, good, fair, poor, bad)
+     * @returns {string} CSS class name (critical, realtime, interactive, standard, async)
      */
     getLatencyClass(latency) {
         if (latency === null || latency === undefined) return '';
-        if (latency < 10) return 'excellent';
-        if (latency < 30) return 'good';
-        if (latency < 80) return 'fair';
-        if (latency < 150) return 'poor';
-        return 'bad';
+        if (latency < 5)   return 'critical';
+        if (latency < 25)  return 'realtime';
+        if (latency < 75)  return 'interactive';
+        if (latency < 200) return 'standard';
+        return 'async';
     }
 
     /**

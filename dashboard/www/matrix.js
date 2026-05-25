@@ -142,21 +142,21 @@ class MatrixView {
         // One-way thresholds = RTT/2. 5 application-tier bands:
         // 1 Ultra-critical (RTT<10) | 2 Real-time (RTT<50) | 3 Interactive (RTT<150)
         // 4 Standard Web/SaaS (RTT<500) | 5 Asynchronous / Batch (RTT≥500)
-        if (latency === null) return '#2a2a3e';
-        if (latency < 5)   return '#0d4a1e';  // 1 Ultra-critical
-        if (latency < 25)  return '#1a5c2a';  // 2 Real-time interactive
-        if (latency < 75)  return '#5c5c1a';  // 3 Interactive user workloads
-        if (latency < 200) return '#6c3a0a';  // 4 Standard Web / SaaS
-        return '#4c0a0a';                      // 5 Asynchronous / Batch
+        if (latency === null) return '#555555';
+        if (latency < 5)   return '#166534';  // 1 Ultra-critical - dark green
+        if (latency < 25)  return '#3f6212';  // 2 Real-time - dark lime
+        if (latency < 75)  return '#854d0e';  // 3 Interactive - dark yellow/amber
+        if (latency < 200) return '#9a3412';  // 4 Standard - dark orange
+        return '#991b1b';                      // 5 Asynchronous / Batch - dark red
     }
 
     _getTextColor(latency) {
-        if (latency === null) return '#555';
-        if (latency < 5)   return '#b6e3c1';
-        if (latency < 25)  return '#a6e3a1';
-        if (latency < 75)  return '#f9e2af';
-        if (latency < 200) return '#fab387';
-        return '#f38ba8';
+        if (latency === null) return '#888';
+        if (latency < 5)   return '#86efac';  // light green
+        if (latency < 25)  return '#bef264';  // light lime
+        if (latency < 75)  return '#fde047';  // light yellow
+        if (latency < 200) return '#fdba74';  // light orange
+        return '#fca5a5';                      // light red
     }
 
     _regionName(id) {
@@ -316,27 +316,27 @@ class MatrixView {
         legend.appendChild(legendTitle);
         const bands = [
             {
-                color: '#0d4a1e', text: '#b6e3c1', label: 'Critical · <5',
+                color: '#166534', text: '#86efac', label: 'Critical · <5',
                 title: 'Critical (RTT < 10 ms)\n' +
                        '• High-Frequency Trading\n' +
                        '• Cloud OLTP databases (Azure SQL, SAP HANA Cloud)\n' +
                        '• In-memory caches (Redis, ElastiCache, Memcached)',
             },
             {
-                color: '#1a5c2a', text: '#a6e3a1', label: 'Real-time · <25',
+                color: '#3f6212', text: '#bef264', label: 'Real-time · <25',
                 title: 'Real-time interactive (RTT < 50 ms)\n' +
                        '• Cloud gaming\n' +
                        '• VR/AR streaming\n' ,
             },
             {
-                color: '#5c5c1a', text: '#f9e2af', label: 'Interactive · <75',
+                color: '#854d0e', text: '#fde047', label: 'Interactive · <75',
                 title: 'Interactive user workloads (RTT < 150 ms)\n' +
                        '• VDI / DaaS (Azure Virtual Desktop, Windows 365)\n' +
                        '• SAP GUI / S/4HANA\n' +
                        '• VoIP & video conferencing (Microsoft Teams, Zoom)\n',
             },
             {
-                color: '#6c3a0a', text: '#fab387', label: 'Standard · <200',
+                color: '#9a3412', text: '#fdba74', label: 'Standard · <200',
                 title: 'Standard Web / SaaS (RTT < 300–500 ms)\n' +
                        '• E-commerce (Shopify)\n' +
                        '• Salesforce, Workday, HubSpot\n' +
@@ -345,7 +345,7 @@ class MatrixView {
                        '• WordPress / Magento, Slack',
             },
             {
-                color: '#4c0a0a', text: '#f38ba8', label: 'Async · ≥200',
+                color: '#991b1b', text: '#fca5a5', label: 'Async · ≥200',
                 title: 'Asynchronous / Batch (RTT ≳ seconds → minutes)\n' +
                        '• Cloud backup (Azure Backup)\n' +
                        '• File sync (OneDrive, Google Drive, Dropbox)\n' +
