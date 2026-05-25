@@ -9,7 +9,7 @@
  * - coordinates: [latitude, longitude] for map placement
  * - country: Country where the region is located
  * - geoGroup: Geographic grouping for filtering
- * - regionType: Region classification ("recommended" or "alternate")
+ * - regionType: Region classification ("recommended" or "other")
  * 
  * @author vmisson
  * @see https://github.com/vmisson/azure-region-span
