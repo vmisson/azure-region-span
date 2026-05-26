@@ -228,5 +228,10 @@
     "displayName": "West India",
     "name": "westindia",
     "size": "Standard_D4als_v6"
+  },
+  {
+    "displayName": "France South",
+    "name": "francesouth",
+    "size": "Standard_D2ahs_v4"
   }
 ]
