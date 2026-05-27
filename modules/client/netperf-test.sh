@@ -21,6 +21,7 @@ REGIONS=(
     "eastus"
     "eastus2"
     "francecentral"
+    "francesouth"
     "germanywestcentral"
     "indonesiacentral"
     "israelcentral"

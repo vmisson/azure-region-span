@@ -191,6 +191,14 @@ const AZURE_REGIONS = {
         geoGroup: "europe",
         regionType: "recommended"
     },
+    "francesouth": {
+        displayName: "France South",
+        coordinates: [43.2965, 5.3698],
+        city: "Marseille",
+        country: "France",
+        geoGroup: "europe",
+        regionType: "other"
+    },
     "germanywestcentral": {
         displayName: "Germany West Central",
         coordinates: [50.1109, 8.6821],
