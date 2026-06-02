@@ -46,7 +46,7 @@ const AZURE_REGIONS = {
     },
     "eastus2": {
         displayName: "East US 2",
-        coordinates: [37.4316, -78.6569],
+        coordinates: [36.6749, -78.3899],
         city: "Virginia",
         country: "United States",
         geoGroup: "northamerica",
@@ -419,5 +419,86 @@ const AZURE_REGIONS = {
         country: "South Africa",
         geoGroup: "africa",
         regionType: "recommended"
+    },
+    "southafricawest": {
+        displayName: "South Africa West",
+        coordinates: [-33.9249, 18.4241],
+        city: "Cape Town",
+        country: "South Africa",
+        geoGroup: "africa",
+        regionType: "other"
+    },
+    // Additional regions
+    "denmarkeast": {
+        displayName: "Denmark East",
+        coordinates: [55.6761, 12.5683],
+        city: "Copenhagen",
+        country: "Denmark",
+        geoGroup: "europe",
+        regionType: "recommended"
+    },
+    "germanynorth": {
+        displayName: "Germany North",
+        coordinates: [52.5200, 13.4050],
+        city: "Berlin",
+        country: "Germany",
+        geoGroup: "europe",
+        regionType: "other"
+    },
+    "norwaywest": {
+        displayName: "Norway West",
+        coordinates: [58.9700, 5.7331],
+        city: "Stavanger",
+        country: "Norway",
+        geoGroup: "europe",
+        regionType: "other"
+    },
+    "swedensouth": {
+        displayName: "Sweden South",
+        coordinates: [55.6049, 13.0038],
+        city: "Malmö",
+        country: "Sweden",
+        geoGroup: "europe",
+        regionType: "other"
+    },
+    "switzerlandwest": {
+        displayName: "Switzerland West",
+        coordinates: [46.2044, 6.1432],
+        city: "Geneva",
+        country: "Switzerland",
+        geoGroup: "europe",
+        regionType: "other"
+    },
+    "australiacentral": {
+        displayName: "Australia Central",
+        coordinates: [-35.2809, 149.1300],
+        city: "Canberra",
+        country: "Australia",
+        geoGroup: "oceania",
+        regionType: "other"
+    },
+    "australiacentral2": {
+        displayName: "Australia Central 2",
+        coordinates: [-34.7809, 149.5300],
+        city: "Canberra",
+        country: "Australia",
+        geoGroup: "oceania",
+        regionType: "other"
+    },
+    "brazilsoutheast": {
+        displayName: "Brazil Southeast",
+        coordinates: [-22.9068, -43.1729],
+        city: "Rio de Janeiro",
+        country: "Brazil",
+        geoGroup: "latinamerica",
+        regionType: "other"
+    },
+    "uaecentral": {
+        displayName: "UAE Central",
+        coordinates: [24.4539, 54.3773],
+        city: "Abu Dhabi",
+        country: "United Arab Emirates",
+        geoGroup: "middleeast",
+        regionType: "other"
     }
 };

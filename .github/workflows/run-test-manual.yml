@@ -8,21 +8,27 @@ on:
         required: true
         type: choice
         options:
+          - australiacentral
+          - australiacentral2
           - australiaeast
           - australiasoutheast
           - austriaeast
           - belgiumcentral
           - brazilsouth
+          - brazilsoutheast
           - canadacentral
           - canadaeast
           - centralindia
           - centralus
           - chilecentral
+          - denmarkeast
           - eastasia
           - eastus
           - eastus2
           - francecentral
           - francesouth
+          - francesouth
+          - germanynorth
           - germanywestcentral
           - indonesiacentral
           - israelcentral
@@ -37,15 +43,20 @@ on:
           - northcentralus
           - northeurope
           - norwayeast
+          - norwaywest
           - polandcentral
           - qatarcentral
           - southafricanorth
+          - southafricawest
           - southcentralus
           - southeastasia
           - southindia
           - spaincentral
           - swedencentral
+          - swedensouth
           - switzerlandnorth
+          - switzerlandwest
+          - uaecentral
           - uaenorth
           - uksouth
           - ukwest
@@ -60,21 +71,27 @@ on:
           required: true
           type: choice
           options:
+            - australiacentral
+            - australiacentral2
             - australiaeast
             - australiasoutheast
             - austriaeast
             - belgiumcentral
             - brazilsouth
+            - brazilsoutheast
             - canadacentral
             - canadaeast
             - centralindia
             - centralus
             - chilecentral
+            - denmarkeast
             - eastasia
             - eastus
             - eastus2
             - francecentral
             - francesouth
+            - francesouth
+            - germanynorth
             - germanywestcentral
             - indonesiacentral
             - israelcentral
@@ -89,15 +106,20 @@ on:
             - northcentralus
             - northeurope
             - norwayeast
+            - norwaywest
             - polandcentral
             - qatarcentral
             - southafricanorth
+            - southafricawest
             - southcentralus
             - southeastasia
             - southindia
             - spaincentral
             - swedencentral
+            - swedensouth
             - switzerlandnorth
+            - switzerlandwest
+            - uaecentral
             - uaenorth
             - uksouth
             - ukwest

@@ -233,5 +233,55 @@
     "displayName": "France South",
     "name": "francesouth",
     "size": "Standard_D2ahs_v4"
+  },
+  {
+    "displayName": "Denmark East",
+    "name": "denmarkeast",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Germany North",
+    "name": "germanynorth",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Norway West",
+    "name": "norwaywest",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Sweden South",
+    "name": "swedensouth",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Switzerland West",
+    "name": "switzerlandwest",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Australia Central",
+    "name": "australiacentral",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Australia Central 2",
+    "name": "australiacentral2",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "Brazil Southeast",
+    "name": "brazilsoutheast",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "UAE Central",
+    "name": "uaecentral",
+    "size": "Standard_D4ls_v5"
+  },
+  {
+    "displayName": "South Africa West",
+    "name": "southafricawest",
+    "size": "Standard_D4ls_v5"
   }
 ]
