@@ -34,13 +34,11 @@ jobs:
           # List of all region workflows
           REGIONS=(
             australiacentral
-            australiacentral2
             australiaeast
             australiasoutheast
             austriaeast
             belgiumcentral
             brazilsouth
-            brazilsoutheast
             canadacentral
             canadaeast
             centralindia
@@ -52,7 +50,6 @@ jobs:
             eastus2
             francecentral
             francesouth
-            germanynorth
             germanywestcentral
             indonesiacentral
             israelcentral
@@ -67,20 +64,15 @@ jobs:
             northcentralus
             northeurope
             norwayeast
-            norwaywest
             polandcentral
             qatarcentral
             southafricanorth
-            southafricawest
             southcentralus
             southeastasia
             southindia
             spaincentral
             swedencentral
-            swedensouth
             switzerlandnorth
-            switzerlandwest
-            uaecentral
             uaenorth
             uksouth
             ukwest
