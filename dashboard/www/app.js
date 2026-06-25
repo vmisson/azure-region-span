@@ -16,6 +16,39 @@
  * @see https://github.com/vmisson/azure-region-span
  */
 
+/**
+ * Color codes used to distinguish region types on the map.
+ * - Green: recommended regions
+ * - Purple: DR/restricted regions (access limited to disaster recovery scenarios)
+ * - Blue: other regions
+ * @type {Object.<string, string>}
+ */
+const REGION_TYPE_COLORS = {
+    recommended: '#00ff88',
+    restricted: '#a855f7',
+    other: '#0078d4'
+};
+
+/**
+ * Returns the marker color for a region based on its type.
+ * @param {{regionType: string}} region - Region metadata
+ * @returns {string} Hex color code
+ */
+function getRegionColor(region) {
+    return REGION_TYPE_COLORS[region.regionType] || REGION_TYPE_COLORS.other;
+}
+
+/**
+ * Returns the human-readable status label for a region based on its type.
+ * @param {{regionType: string}} region - Region metadata
+ * @returns {string} Status label
+ */
+function getRegionStatus(region) {
+    if (region.regionType === 'recommended') return 'Recommended';
+    if (region.regionType === 'restricted') return 'Restricted';
+    return 'Other';
+}
+
 class LatencyMapApp {
     /**
      * Creates a new LatencyMapApp instance.
@@ -119,7 +152,7 @@ class LatencyMapApp {
         // Create markers for each Azure region
         // Green (#00ff88) for recommended regions, Blue (#0078d4) for alternate regions
         Object.entries(AZURE_REGIONS).forEach(([regionId, region]) => {
-            const markerColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+            const markerColor = getRegionColor(region);
             const marker = L.circleMarker(region.coordinates, {
                 radius: 8,
                 fillColor: markerColor,
@@ -129,8 +162,8 @@ class LatencyMapApp {
                 fillOpacity: 0.8
             });
 
-            const regionStatus = region.regionType === 'recommended' ? 'Recommended' : 'Other';
-            marker.bindTooltip(`${region.displayName}<br><span style="font-size: 0.8em; color: ${region.regionType === 'recommended' ? '#00ff88' : '#0078d4'}">${regionStatus}</span>`, {
+            const regionStatus = getRegionStatus(region);
+            marker.bindTooltip(`${region.displayName}<br><span style="font-size: 0.8em; color: ${getRegionColor(region)}">${regionStatus}</span>`, {
                 permanent: false,
                 direction: 'top',
                 offset: [0, -10]
@@ -579,24 +612,123 @@ class LatencyMapApp {
     }
 
     /**
-     * Updates the statistics panel with current data.
-     * Shows region count, connection count, and average latency.
+     * Updates the statistics panel.
+     * When a region is selected, shows details and latency stats about that
+     * region. Otherwise shows global statistics about the whole dataset.
      */
     updateStats() {
         if (!this.latencyData) return;
 
+        const titleEl = document.getElementById('statsTitle');
+        const bodyEl = document.getElementById('statsBody');
+        if (!titleEl || !bodyEl) return;
+
+        if (this.selectedRegion && AZURE_REGIONS[this.selectedRegion]) {
+            this.renderSelectedRegionStats(titleEl, bodyEl, this.selectedRegion);
+        } else {
+            this.renderGlobalStats(titleEl, bodyEl);
+        }
+    }
+
+    /**
+     * Builds a single statistics row.
+     * @param {string} label - Row label
+     * @param {string} value - Row value (HTML allowed)
+     * @param {string} [color] - Optional value color
+     * @returns {string} HTML string
+     */
+    statRow(label, value, color) {
+        const style = color ? ` style="color: ${color}"` : '';
+        return `<div class="stat-item"><span class="stat-label">${label}</span>` +
+            `<span class="stat-value"${style}>${value}</span></div>`;
+    }
+
+    /**
+     * Renders global dataset statistics into the stats panel.
+     * @param {HTMLElement} titleEl - Panel title element
+     * @param {HTMLElement} bodyEl - Panel body element
+     */
+    renderGlobalStats(titleEl, bodyEl) {
         const regionsCount = this.latencyData.regions ? this.latencyData.regions.length : Object.keys(AZURE_REGIONS).length;
         const connectionsCount = this.latencyData.connections ? this.latencyData.connections.length : 0;
-        
+
         let avgLatency = 0;
         if (this.latencyData.connections && this.latencyData.connections.length > 0) {
             const totalLatency = this.latencyData.connections.reduce((sum, conn) => sum + (conn.latency || 0), 0);
             avgLatency = totalLatency / this.latencyData.connections.length;
         }
 
-        document.getElementById('statRegions').textContent = regionsCount;
-        document.getElementById('statConnections').textContent = connectionsCount;
-        document.getElementById('statAvgLatency').textContent = `${avgLatency.toFixed(2)} ms`;
+        titleEl.textContent = 'Statistics';
+        bodyEl.innerHTML =
+            this.statRow('Available Regions', regionsCount) +
+            this.statRow('Measured Connections', connectionsCount) +
+            this.statRow('Average Latency', `${avgLatency.toFixed(2)} ms`) +
+            `<div class="stat-hint">Select a region on the map for details</div>`;
+    }
+
+    /**
+     * Computes round-trip latency stats between a region and all its peers.
+     * @param {string} regionId - Selected region ID
+     * @returns {{peers: number, avgRtt: number|null, best: ?{id: string, rtt: number}, worst: ?{id: string, rtt: number}}}
+     */
+    computeRegionRttStats(regionId) {
+        const result = { peers: 0, avgRtt: null, best: null, worst: null };
+        if (!this.latencyData || !this.latencyData.connections) return result;
+
+        const peerIds = new Set();
+        this.latencyData.connections.forEach(conn => {
+            if (conn.source === regionId && conn.destination !== regionId) peerIds.add(conn.destination);
+            if (conn.destination === regionId && conn.source !== regionId) peerIds.add(conn.source);
+        });
+
+        let rttSum = 0;
+        let rttCount = 0;
+        peerIds.forEach(peerId => {
+            const forward = this.latencyData.connections.find(c => c.source === regionId && c.destination === peerId);
+            const reverse = this.latencyData.connections.find(c => c.source === peerId && c.destination === regionId);
+            const f = forward?.latency;
+            const r = reverse?.latency;
+            if (f === null || f === undefined || r === null || r === undefined) return;
+
+            const rtt = f + r;
+            result.peers++;
+            rttSum += rtt;
+            rttCount++;
+            if (!result.best || rtt < result.best.rtt) result.best = { id: peerId, rtt };
+            if (!result.worst || rtt > result.worst.rtt) result.worst = { id: peerId, rtt };
+        });
+
+        if (rttCount > 0) result.avgRtt = rttSum / rttCount;
+        return result;
+    }
+
+    /**
+     * Renders details and latency stats about the selected region.
+     * @param {HTMLElement} titleEl - Panel title element
+     * @param {HTMLElement} bodyEl - Panel body element
+     * @param {string} regionId - Selected region ID
+     */
+    renderSelectedRegionStats(titleEl, bodyEl, regionId) {
+        const region = AZURE_REGIONS[regionId];
+        const stats = this.computeRegionRttStats(regionId);
+
+        const typeColor = getRegionColor(region);
+        const typeLabel = getRegionStatus(region);
+        const location = region.city ? `${region.city}, ${region.country}` : region.country;
+        const geo = GEO_GROUPS[region.geoGroup]?.displayName || region.geoGroup;
+
+        const peerName = (peer) => peer ? `${AZURE_REGIONS[peer.id]?.displayName || peer.id} (${peer.rtt.toFixed(2)} ms)` : 'N/A';
+
+        titleEl.textContent = 'Selected Region';
+        bodyEl.innerHTML =
+            this.statRow('Region', region.displayName) +
+            this.statRow('Type', typeLabel, typeColor) +
+            this.statRow('Location', location) +
+            this.statRow('Geography', geo) +
+            this.statRow('Measured Peers', stats.peers) +
+            this.statRow('Average RTT', stats.avgRtt !== null ? `${stats.avgRtt.toFixed(2)} ms` : 'N/A', this.getRttColor(stats.avgRtt)) +
+            this.statRow('Fastest Peer', peerName(stats.best), this.getRttColor(stats.best?.rtt ?? null)) +
+            this.statRow('Slowest Peer', peerName(stats.worst), this.getRttColor(stats.worst?.rtt ?? null));
     }
 
     /**
@@ -665,7 +797,7 @@ class LatencyMapApp {
         // Reset all markers to their region type colors
         Object.entries(this.markers).forEach(([id, marker]) => {
             const region = AZURE_REGIONS[id];
-            const defaultColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+            const defaultColor = getRegionColor(region);
             marker.setStyle({
                 radius: 8,
                 fillColor: defaultColor
@@ -675,7 +807,7 @@ class LatencyMapApp {
         // Highlight selected marker (keep region type color, just increase size)
         if (this.markers[regionId]) {
             const region = AZURE_REGIONS[regionId];
-            const selectedColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+            const selectedColor = getRegionColor(region);
             this.markers[regionId].setStyle({
                 radius: 12,
                 fillColor: selectedColor
@@ -688,6 +820,7 @@ class LatencyMapApp {
         // Draw connections and update list
         this.drawConnections(regionId);
         this.updateLatencyList(regionId);
+        this.updateStats();
     }
 
     /**
@@ -700,7 +833,7 @@ class LatencyMapApp {
         // Reset all markers to their region type colors
         Object.entries(this.markers).forEach(([id, marker]) => {
             const region = AZURE_REGIONS[id];
-            const defaultColor = region.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+            const defaultColor = getRegionColor(region);
             marker.setStyle({
                 radius: 8,
                 fillColor: defaultColor
@@ -719,6 +852,7 @@ class LatencyMapApp {
                 <p>Select a source region to view latencies</p>
             </div>
         `;
+        this.updateStats();
     }
 
     /**

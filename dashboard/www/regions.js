@@ -9,7 +9,7 @@
  * - coordinates: [latitude, longitude] for map placement
  * - country: Country where the region is located
  * - geoGroup: Geographic grouping for filtering
- * - regionType: Region classification ("recommended" or "other")
+ * - regionType: Region classification ("recommended", "restricted" or "other")
  * 
  * @author vmisson
  * @see https://github.com/vmisson/azure-region-span
@@ -197,7 +197,7 @@ const AZURE_REGIONS = {
         city: "Marseille",
         country: "France",
         geoGroup: "europe",
-        regionType: "other"
+        regionType: "restricted"
     },
     "germanywestcentral": {
         displayName: "Germany West Central",

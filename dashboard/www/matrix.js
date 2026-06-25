@@ -410,7 +410,7 @@ class MatrixView {
             // Color based on region type
             const dstInfo = this._regionInfo(dst);
             if (dstInfo) {
-                innerDiv.style.color = dstInfo.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+                innerDiv.style.color = getRegionColor(dstInfo);
             }
             th.appendChild(innerDiv);
             th.addEventListener('mouseenter', e => this._showRegionTooltip(dst, e));
@@ -430,7 +430,7 @@ class MatrixView {
             // Color based on region type
             const srcInfo = this._regionInfo(src);
             if (srcInfo) {
-                rowHeader.style.color = srcInfo.regionType === 'recommended' ? '#00ff88' : '#0078d4';
+                rowHeader.style.color = getRegionColor(srcInfo);
             }
             rowHeader.addEventListener('mouseenter', e => this._showRegionTooltip(src, e));
             rowHeader.addEventListener('mouseleave', () => this._hideTooltip());
@@ -474,7 +474,7 @@ class MatrixView {
             this._tooltipEl.className = 'matrix-tooltip';
             document.body.appendChild(this._tooltipEl);
         }
-        const regionTypeLabel = info.regionType === 'recommended' ? 'Recommended' : 'Other';
+        const regionTypeLabel = getRegionStatus(info);
         const city = info.city ? `${info.city}, ` : '';
         this._tooltipEl.innerHTML = `
             <strong>${info.displayName}</strong><br>
