@@ -9,7 +9,7 @@
  * - coordinates: [latitude, longitude] for map placement
  * - country: Country where the region is located
  * - geoGroup: Geographic grouping for filtering
- * - regionType: Region classification ("recommended" or "other")
+ * - regionType: Region classification ("recommended", "restricted" or "other")
  * 
  * @author vmisson
  * @see https://github.com/vmisson/azure-region-span
@@ -150,6 +150,14 @@ const AZURE_REGIONS = {
         geoGroup: "latinamerica",
         regionType: "recommended"
     },
+    "brazilsoutheast": {
+        displayName: "Brazil Southeast",
+        coordinates: [-22.9068, -43.1729],
+        city: "Rio de Janeiro",
+        country: "Brazil",
+        geoGroup: "latinamerica",
+        regionType: "restricted"
+    },
     // Europe
     "northeurope": {
         displayName: "North Europe",
@@ -197,7 +205,7 @@ const AZURE_REGIONS = {
         city: "Marseille",
         country: "France",
         geoGroup: "europe",
-        regionType: "other"
+        regionType: "restricted"
     },
     "germanywestcentral": {
         displayName: "Germany West Central",
@@ -207,6 +215,14 @@ const AZURE_REGIONS = {
         geoGroup: "europe",
         regionType: "recommended"
     },
+    "germanynorth": {
+        displayName: "Germany North",
+        coordinates: [52.5200, 13.4050],
+        city: "Berlin",
+        country: "Germany",
+        geoGroup: "europe",
+        regionType: "restricted"
+    },
     "switzerlandnorth": {
         displayName: "Switzerland North",
         coordinates: [47.3769, 8.5417],
@@ -214,6 +230,14 @@ const AZURE_REGIONS = {
         country: "Switzerland",
         geoGroup: "europe",
         regionType: "recommended"
+    },
+    "switzerlandwest": {
+        displayName: "Switzerland West",
+        coordinates: [46.2044, 6.1432],
+        city: "Geneva",
+        country: "Switzerland",
+        geoGroup: "europe",
+        regionType: "restricted"
     },
     "swedencentral": {
         displayName: "Sweden Central",
@@ -223,6 +247,14 @@ const AZURE_REGIONS = {
         geoGroup: "europe",
         regionType: "recommended"
     },
+    "swedensouth": {
+        displayName: "Sweden South",
+        coordinates: [55.6050, 13.0038],
+        city: "Malmö",
+        country: "Sweden",
+        geoGroup: "europe",
+        regionType: "restricted"
+    },
     "norwayeast": {
         displayName: "Norway East",
         coordinates: [59.9139, 10.7522],
@@ -230,6 +262,14 @@ const AZURE_REGIONS = {
         country: "Norway",
         geoGroup: "europe",
         regionType: "recommended"
+    },
+    "norwaywest": {
+        displayName: "Norway West",
+        coordinates: [58.9700, 5.7331],
+        city: "Stavanger",
+        country: "Norway",
+        geoGroup: "europe",
+        regionType: "restricted"
     },
     "italynorth": {
         displayName: "Italy North",
@@ -395,6 +435,14 @@ const AZURE_REGIONS = {
         geoGroup: "middleeast",
         regionType: "recommended"
     },
+    "uaecentral": {
+        displayName: "UAE Central",
+        coordinates: [24.4539, 54.3773],
+        city: "Abu Dhabi",
+        country: "United Arab Emirates",
+        geoGroup: "middleeast",
+        regionType: "restricted"
+    },
     "qatarcentral": {
         displayName: "Qatar Central",
         coordinates: [25.2854, 51.5310],
@@ -420,6 +468,14 @@ const AZURE_REGIONS = {
         geoGroup: "africa",
         regionType: "recommended"
     },
+    "southafricawest": {
+        displayName: "South Africa West",
+        coordinates: [-33.9249, 18.4241],
+        city: "Cape Town",
+        country: "South Africa",
+        geoGroup: "africa",
+        regionType: "restricted"
+    },
     // Additional regions
     "denmarkeast": {
         displayName: "Denmark East",
@@ -436,5 +492,13 @@ const AZURE_REGIONS = {
         country: "Australia",
         geoGroup: "oceania",
         regionType: "other"
+    },
+    "australiacentral2": {
+        displayName: "Australia Central 2",
+        coordinates: [-35.3075, 149.1244],
+        city: "Canberra",
+        country: "Australia",
+        geoGroup: "oceania",
+        regionType: "restricted"
     }
 };

@@ -437,6 +437,14 @@
             color: #00d9ff;
         }
 
+        .stat-hint {
+            margin-top: 12px;
+            font-size: 0.78rem;
+            color: #64748b;
+            font-style: italic;
+            text-align: center;
+        }
+
         .latency-list {
             max-height: 300px;
             overflow-y: auto;
@@ -1032,6 +1040,10 @@
                     <div class="legend-color-circle" style="background: #0078d4;"></div>
                     <span>Other</span>
                 </div>
+                <div class="legend-item">
+                    <div class="legend-color-circle" style="background: #a855f7;"></div>
+                    <span>Restricted</span>
+                </div>
             </div>
 
             <div class="latency-legend">
@@ -1070,19 +1082,8 @@
             </div>
 
             <div class="stats-panel" id="statsPanel">
-                <h3>Statistics</h3>
-                <div class="stat-item">
-                    <span class="stat-label">Available Regions</span>
-                    <span class="stat-value" id="statRegions">-</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Measured Connections</span>
-                    <span class="stat-value" id="statConnections">-</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Average Latency</span>
-                    <span class="stat-value" id="statAvgLatency">-</span>
-                </div>
+                <h3 id="statsTitle">Statistics</h3>
+                <div id="statsBody"></div>
             </div>
         </aside>
 
