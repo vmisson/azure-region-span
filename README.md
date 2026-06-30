@@ -97,9 +97,11 @@ terraform apply -var-file="tfvars/francecentral.tfvars" \
 | Australia East | `australiaeast.tfvars` |
 | Australia Southeast | `australiasoutheast.tfvars` |
 | Australia Central | `australiacentral.tfvars` |
+| Australia Central 2 | `australiacentral2.tfvars` |
 | Austria East | `austriaeast.tfvars` |
 | Belgium Central | `belgiumcentral.tfvars` |
 | Brazil South | `brazilsouth.tfvars` |
+| Brazil Southeast | `brazilsoutheast.tfvars` |
 | Canada Central | `canadacentral.tfvars` |
 | Canada East | `canadaeast.tfvars` |
 | Central India | `centralindia.tfvars` |
@@ -112,6 +114,7 @@ terraform apply -var-file="tfvars/francecentral.tfvars" \
 | France Central | `francecentral.tfvars` |
 | France South | `francesouth.tfvars` |
 | Germany West Central | `germanywestcentral.tfvars` |
+| Germany North | `germanynorth.tfvars` |
 | Indonesia Central | `indonesiacentral.tfvars` |
 | Israel Central | `israelcentral.tfvars` |
 | Italy North | `italynorth.tfvars` |
@@ -125,15 +128,19 @@ terraform apply -var-file="tfvars/francecentral.tfvars" \
 | North Central US | `northcentralus.tfvars` |
 | North Europe | `northeurope.tfvars` |
 | Norway East | `norwayeast.tfvars` |
+| Norway West | `norwaywest.tfvars` |
 | Poland Central | `polandcentral.tfvars` |
 | Qatar Central | `qatarcentral.tfvars` |
 | South Africa North | `southafricanorth.tfvars` |
+| South Africa West | `southafricawest.tfvars` |
 | South Central US | `southcentralus.tfvars` |
 | Southeast Asia | `southeastasia.tfvars` |
 | South India | `southindia.tfvars` |
 | Spain Central | `spaincentral.tfvars` |
 | Sweden Central | `swedencentral.tfvars` |
+| Sweden South | `swedensouth.tfvars` |
 | Switzerland North | `switzerlandnorth.tfvars` |
+| Switzerland West | `switzerlandwest.tfvars` |
 | UAE North | `uaenorth.tfvars` |
 | UK South | `uksouth.tfvars` |
 | UK West | `ukwest.tfvars` |

@@ -247,6 +247,14 @@ const AZURE_REGIONS = {
         geoGroup: "europe",
         regionType: "recommended"
     },
+    "swedensouth": {
+        displayName: "Sweden South",
+        coordinates: [55.6050, 13.0038],
+        city: "Malmö",
+        country: "Sweden",
+        geoGroup: "europe",
+        regionType: "restricted"
+    },
     "norwayeast": {
         displayName: "Norway East",
         coordinates: [59.9139, 10.7522],
