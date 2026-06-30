@@ -9,11 +9,13 @@ on:
         type: choice
         options:
           - australiacentral
+          - australiacentral2
           - australiaeast
           - australiasoutheast
           - austriaeast
           - belgiumcentral
           - brazilsouth
+          - brazilsoutheast
           - canadacentral
           - canadaeast
           - centralindia
@@ -25,6 +27,7 @@ on:
           - eastus2
           - francecentral
           - francesouth
+          - germanynorth
           - germanywestcentral
           - indonesiacentral
           - israelcentral
@@ -39,15 +42,19 @@ on:
           - northcentralus
           - northeurope
           - norwayeast
+          - norwaywest
           - polandcentral
           - qatarcentral
           - southafricanorth
+          - southafricawest
           - southcentralus
           - southeastasia
           - southindia
           - spaincentral
           - swedencentral
+          - swedensouth
           - switzerlandnorth
+          - switzerlandwest
           - uaenorth
           - uksouth
           - ukwest
@@ -63,11 +70,13 @@ on:
           type: choice
           options:
             - australiacentral
+            - australiacentral2
             - australiaeast
             - australiasoutheast
             - austriaeast
             - belgiumcentral
             - brazilsouth
+            - brazilsoutheast
             - canadacentral
             - canadaeast
             - centralindia
@@ -79,6 +88,7 @@ on:
             - eastus2
             - francecentral
             - francesouth
+            - germanynorth
             - germanywestcentral
             - indonesiacentral
             - israelcentral
@@ -93,15 +103,19 @@ on:
             - northcentralus
             - northeurope
             - norwayeast
+            - norwaywest
             - polandcentral
             - qatarcentral
             - southafricanorth
+            - southafricawest
             - southcentralus
             - southeastasia
             - southindia
             - spaincentral
             - swedencentral
+            - swedensouth
             - switzerlandnorth
+            - switzerlandwest
             - uaenorth
             - uksouth
             - ukwest
