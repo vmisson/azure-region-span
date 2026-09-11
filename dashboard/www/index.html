@@ -3,1201 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Azure Region Span</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet"> -->
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a2e;
-            color: #fff;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-            padding: 15px 30px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-            position: relative;
-            z-index: 50;
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .header h1 svg {
-            width: 32px;
-            height: 32px;
-        }
-
-        .disclaimer {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.7);
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-weight: 400;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .github-link {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #fff;
-            text-decoration: none;
-            font-size: 0.85rem;
-            padding: 6px 12px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.1);
-            transition: background 0.2s;
-        }
-
-        .github-link:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .github-link svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        .last-measurement {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #fff;
-            font-size: 0.85rem;
-            padding: 6px 12px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .last-measurement svg {
-            width: 16px;
-            height: 16px;
-            opacity: 0.9;
-        }
-
-        .last-measurement-label {
-            color: rgba(255, 255, 255, 0.75);
-        }
-
-        .last-measurement-value {
-            font-weight: 600;
-        }
-
-        .container {
-            display: flex;
-            height: calc(100vh - 90px);
-        }
-
-        .site-footer {
-            background: #0f1626;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 6px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 6px 10px;
-            min-height: 30px;
-            font-size: 0.7rem;
-            color: rgba(255, 255, 255, 0.4);
-            font-weight: 400;
-            letter-spacing: 0.02em;
-        }
-
-        .site-footer a {
-            color: rgba(255, 255, 255, 0.55);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        .site-footer a:hover {
-            color: rgba(255, 255, 255, 0.85);
-            text-decoration: underline;
-        }
-
-        .site-footer-sep {
-            opacity: 0.5;
-        }
-
-        .sidebar {
-            width: 350px;
-            background: #16213e;
-            padding: 20px;
-            overflow-y: auto;
-            border-right: 1px solid #0f3460;
-        }
-
-        .sidebar h2 {
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            color: #00d9ff;
-        }
-
-        .region-selector {
-            margin-bottom: 20px;
-        }
-
-        .region-selector label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-            color: #94a3b8;
-        }
-
-        .region-selector select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #0f3460;
-            border-radius: 6px;
-            background: #1a1a2e;
-            color: #fff;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-
-        .region-selector select:focus {
-            outline: none;
-            border-color: #0078d4;
-        }
-
-        .destination-filter {
-            margin-bottom: 20px;
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 16px;
-        }
-
-        .destination-filter > label {
-            display: block;
-            margin-bottom: 12px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .filter-controls {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .filter-controls button {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
-            color: #94a3b8;
-            font-size: 0.8rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .filter-controls button:hover {
-            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-            color: #fff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
-        }
-
-        .geo-filters {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .geo-filter-btn {
-            padding: 10px 12px;
-            border: none;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
-            color: #94a3b8;
-            font-size: 0.8rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-
-        .geo-filter-btn .geo-label {
-            font-weight: 500;
-        }
-
-        .geo-filter-btn:hover {
-            background: linear-gradient(135deg, #1a4a7a 0%, #0f3460 100%);
-            color: #fff;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 120, 212, 0.2);
-        }
-
-        .geo-filter-btn.active {
-            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(0, 120, 212, 0.4);
-        }
-
-        .geo-filter-btn.partial {
-            background: linear-gradient(135deg, rgba(0, 120, 212, 0.5) 0%, rgba(16, 110, 190, 0.3) 100%);
-            color: #fff;
-            border: 1px solid rgba(0, 120, 212, 0.5);
-        }
-
-        .geo-filter-btn .count {
-            background: rgba(255,255,255,0.15);
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            min-width: 24px;
-            text-align: center;
-        }
-
-        .geo-filter-btn.active .count {
-            background: rgba(255,255,255,0.25);
-        }
-
-        .geo-filter-btn.partial .count {
-            background: rgba(255,255,255,0.2);
-        }
-
-        .regions-list-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 12px;
-            background: #0f3460;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 8px;
-            transition: all 0.2s;
-        }
-
-        .regions-list-toggle:hover {
-            background: #1a4a7a;
-        }
-
-        .regions-list-toggle span {
-            font-size: 0.8rem;
-            color: #94a3b8;
-        }
-
-        .regions-list-toggle .toggle-icon {
-            transition: transform 0.3s;
-            color: #94a3b8;
-        }
-
-        .regions-list-toggle.open .toggle-icon {
-            transform: rotate(180deg);
-        }
-
-        .destination-checkboxes {
-            max-height: 0;
-            overflow: hidden;
-            background: rgba(15, 52, 96, 0.3);
-            border-radius: 8px;
-            transition: max-height 0.3s ease, padding 0.3s ease;
-        }
-
-        .destination-checkboxes.open {
-            max-height: 250px;
-            overflow-y: auto;
-            padding: 8px;
-        }
-
-        .destination-checkbox-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 2px;
-        }
-
-        .destination-checkbox-item:hover {
-            background: rgba(0, 120, 212, 0.15);
-        }
-
-        .destination-checkbox-item input {
-            width: 16px;
-            height: 16px;
-            margin-right: 10px;
-            cursor: pointer;
-            accent-color: #0078d4;
-        }
-
-        .destination-checkbox-item label {
-            flex: 1;
-            cursor: pointer;
-            font-size: 0.85rem;
-            color: #e2e8f0;
-        }
-
-        .filter-summary {
-            font-size: 0.8rem;
-            color: #00d9ff;
-            margin-top: 8px;
-        }
-
-        .latency-legend {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .latency-legend h3 {
-            font-size: 0.95rem;
-            margin-bottom: 10px;
-            color: #fff;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-        }
-
-        .legend-color {
-            width: 30px;
-            height: 4px;
-            border-radius: 2px;
-            margin-right: 10px;
-        }
-
-        .legend-color-circle {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid #ffffff;
-        }
-
-        .stats-panel {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-
-        .stats-panel h3 {
-            font-size: 0.95rem;
-            margin-bottom: 15px;
-            color: #fff;
-        }
-
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #0f3460;
-            font-size: 0.85rem;
-        }
-
-        .stat-item:last-child {
-            border-bottom: none;
-        }
-
-        .stat-label {
-            color: #94a3b8;
-        }
-
-        .stat-value {
-            font-weight: 600;
-            color: #00d9ff;
-        }
-
-        .stat-hint {
-            margin-top: 12px;
-            font-size: 0.78rem;
-            color: #64748b;
-            font-style: italic;
-            text-align: center;
-        }
-
-        .latency-list {
-            max-height: 300px;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-
-        .latency-item {
-            background: #1a1a2e;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .latency-item:hover {
-            border-color: #0078d4;
-            transform: translateX(5px);
-        }
-
-        .latency-item .destination {
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .latency-item .value {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .latency-item .value.critical {
-            color: #22c55e;
-        }
-
-        .latency-item .value.realtime {
-            color: #84cc16;
-        }
-
-        .latency-item .value.interactive {
-            color: #eab308;
-        }
-
-        .latency-item .value.standard {
-            color: #f97316;
-        }
-
-        .latency-item .value.async {
-            color: #ef4444;
-        }
-
-        .latency-item .latency-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .latency-item .bidirectional-info {
-            font-size: 0.8rem;
-            color: #94a3b8;
-            margin-top: 2px;
-        }
-
-        .latency-item .measurement-count {
-            font-size: 0.75rem;
-            color: #64748b;
-            margin-top: 2px;
-        }
-
-        .popup-measurements {
-            font-size: 0.85rem;
-            color: #94a3b8;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #0f3460;
-        }
-
-        #map {
-            flex: 1;
-            background: #0a0a1a;
-        }
-
-        .leaflet-popup-content-wrapper {
-            background: #16213e;
-            color: #fff;
-            border-radius: 8px;
-        }
-
-        .leaflet-popup-tip {
-            background: #16213e;
-        }
-
-        .leaflet-popup-content {
-            margin: 15px;
-        }
-
-        .popup-title {
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            color: #00d9ff;
-        }
-
-        .popup-rtt {
-            font-size: 1.4rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #0f3460;
-        }
-
-        .popup-latency {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #94a3b8;
-        }
-
-        .popup-route {
-            font-size: 0.85rem;
-            color: #94a3b8;
-        }
-
-        .loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(26, 26, 46, 0.95);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        .loading.hidden {
-            display: none;
-        }
-
-        .loading-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #0f3460;
-            border-top-color: #0078d4;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        .loading-text {
-            font-size: 1.1rem;
-            color: #94a3b8;
-            text-align: center;
-        }
-
-        .progress-container {
-            width: 300px;
-            height: 8px;
-            background: #0f3460;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #0078d4, #00d9ff);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-
-        .loading-percent {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #00d9ff;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .region-marker {
-            background: #0078d4;
-            border: 3px solid #fff;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        }
-
-        .region-marker.selected {
-            background: #00ff88;
-            width: 20px;
-            height: 20px;
-            border-width: 4px;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 40px 20px;
-            color: #94a3b8;
-        }
-
-        .no-data svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 15px;
-            opacity: 0.5;
-        }
-
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #1a1a2e;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #0f3460;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #0078d4;
-        }
-
-        /* Mobile menu button */
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: #fff;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 6px;
-            transition: background 0.2s;
-        }
-
-        .mobile-menu-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .mobile-menu-btn svg {
-            width: 24px;
-            height: 24px;
-        }
-
-        /* Sidebar overlay for mobile */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 99;
-        }
-
-        .sidebar-overlay.active {
-            display: block;
-        }
-
-        /* Mobile close button */
-        .sidebar-close {
-            display: none;
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .sidebar-close:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        /* Mobile Responsive Styles */
-        @media (max-width: 768px) {
-            .header {
-                padding: 12px 15px;
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-
-            .header h1 {
-                font-size: 1.2rem;
-                flex: 1;
-            }
-
-            .header h1 svg {
-                width: 24px;
-                height: 24px;
-            }
-
-            .site-footer {
-                padding: 6px 10px;
-                min-height: 26px;
-                font-size: 0.65rem;
-                text-align: center;
-                line-height: 1.5;
-            }
-
-            .site-footer-sep {
-                display: none;
-            }
-
-            .header-right {
-                order: 2;
-                gap: 10px;
-            }
-
-            .github-link {
-                font-size: 0.75rem;
-                padding: 4px 8px;
-            }
-
-            .github-link svg {
-                width: 16px;
-                height: 16px;
-            }
-
-            .last-measurement {
-                font-size: 0.7rem;
-                padding: 4px 8px;
-                gap: 4px;
-            }
-
-            .last-measurement-label {
-                display: none;
-            }
-
-            .last-measurement svg {
-                width: 14px;
-                height: 14px;
-            }
-
-            .mobile-menu-btn {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .container {
-                flex-direction: column;
-                height: auto;
-                min-height: calc(100vh - 100px);
-            }
-
-            .sidebar {
-                position: fixed;
-                top: 0;
-                left: -100%;
-                width: 85%;
-                max-width: 350px;
-                height: 100vh;
-                height: 100dvh;
-                z-index: 1000;
-                transition: left 0.3s ease;
-                padding-top: 50px;
-                overflow-y: auto;
-            }
-
-            .sidebar.open {
-                left: 0;
-            }
-
-            .sidebar-close {
-                display: block;
-                z-index: 1001;
-            }
-
-            .sidebar-overlay {
-                z-index: 999;
-            }
-
-            #map {
-                height: calc(100vh - 100px);
-                width: 100%;
-            }
-
-            .region-selector select {
-                font-size: 16px; /* Prevents zoom on iOS */
-            }
-
-            .geo-filters {
-                grid-template-columns: 1fr;
-            }
-
-            .geo-filter-btn {
-                padding: 12px;
-            }
-
-            .latency-list {
-                max-height: 200px;
-            }
-
-            .filter-controls {
-                flex-direction: column;
-            }
-
-            .filter-controls button {
-                padding: 12px;
-            }
-
-            .stats-panel {
-                margin-bottom: 80px; /* Extra space at bottom for easier scrolling */
-            }
-
-            .leaflet-control-zoom {
-                margin-bottom: 20px !important;
-            }
-
-            .loading-content {
-                padding: 20px;
-            }
-
-            .progress-container {
-                width: 250px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .header h1 {
-                font-size: 1rem;
-            }
-
-            .sidebar {
-                width: 100%;
-                max-width: none;
-            }
-
-            .latency-legend h3,
-            .stats-panel h3 {
-                font-size: 0.9rem;
-            }
-
-            .legend-item {
-                font-size: 0.8rem;
-            }
-
-            .stat-item {
-                font-size: 0.8rem;
-            }
-        }
-
-        .view-toggle {
-            display: flex;
-            gap: 2px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 3px;
-            margin-left: 20px;
-        }
-
-        .view-btn {
-            padding: 8px 20px;
-            border: 1px solid transparent;
-            background: transparent;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-            border-radius: 6px;
-        }
-
-        .view-btn:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .view-btn.active {
-            background: rgba(255, 255, 255, 0.25);
-            color: #fff;
-            font-weight: 700;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        }
-    </style>
+    <meta name="theme-color" content="#0078d4">
+    <meta name="description" content="Measured network latency across Azure regions. Explore regional connections, round-trip times and the latency matrix.">
+    <title>Region Span / Azure Network</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="styles.css?v=7">
 </head>
-<body>
-    <div class="loading" id="loading">
+<body data-view="map">
+    <a class="skip-link" href="#workspace">Skip to dashboard</a>
+    <div class="loading" id="loading" role="status" aria-live="polite">
         <div class="loading-content">
-            <div class="spinner"></div>
-            <p class="loading-text" id="loadingText">Initializing...</p>
-            <div class="progress-container">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
+            <span class="brand-mark"><i data-lucide="network"></i></span>
+            <p class="loading-title">Region Span</p>
+            <p class="loading-text" id="loadingText">Connecting to the network</p>
+            <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
             <p class="loading-percent" id="loadingPercent">0%</p>
         </div>
     </div>
 
     <header class="header">
-        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-        </button>
-        <h1>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
-            Azure Region Span
-        </h1>
-        <div class="view-toggle">
-            <button class="view-btn active" id="mapViewBtn" title="Map View"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Map</button>
-            <button class="view-btn" id="matrixViewBtn" title="Matrix View"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Matrix</button>
-        </div>
-        <div class="header-right">
-            <span class="last-measurement" id="lastMeasurement" title="Date of the most recent latency measurement">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <span class="last-measurement-label">Last measurement:</span>
-                <span class="last-measurement-value" id="lastMeasurementValue">—</span>
-            </span>
-            <a href="https://github.com/vmisson/azure-region-span" target="_blank" rel="noopener noreferrer" class="github-link">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-                azure-region-span
+        <div class="header-inner">
+            <a class="brand" href="./" aria-label="Region Span home">
+                <span class="brand-mark"><i data-lucide="network"></i></span>
+                <span class="brand-copy">
+                    <span class="brand-name">Region<span>Span</span></span>
+                    <span class="brand-platform">AZURE NETWORK</span>
+                </span>
             </a>
+            <nav class="view-toggle" role="tablist" aria-label="Dashboard view">
+                <button class="view-btn active" id="mapViewBtn" role="tab" aria-selected="true" aria-controls="mapWorkspace"><i data-lucide="globe-2"></i><span>Map</span></button>
+                <button class="view-btn" id="matrixViewBtn" role="tab" aria-selected="false" aria-controls="matrix" tabindex="-1"><i data-lucide="grid-3x3"></i><span>Matrix</span></button>
+            </nav>
+            <div class="header-right">
+                <span class="data-status" id="dataStatus" role="status"><span class="status-dot"></span><span id="dataStatusText">Connecting</span></span>
+                <div class="header-actions">
+                    <button class="icon-btn" id="refreshBtn" aria-label="Refresh measurements" data-tooltip="Refresh measurements"><i data-lucide="refresh-cw"></i></button>
+                    <a class="icon-btn github-link" href="https://github.com/vmisson/azure-region-span" target="_blank" rel="noopener noreferrer" aria-label="View GitHub repository" data-tooltip="GitHub repository"><i data-lucide="github"></i></a>
+                </div>
+            </div>
         </div>
     </header>
 
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <div class="container">
-        <aside class="sidebar" id="sidebar">
-            <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
-            <div class="region-selector">
-                <label for="sourceRegion">Source Region</label>
-                <select id="sourceRegion">
-                    <option value="">Select a region...</option>
-                </select>
+    <main class="dashboard" id="workspace" tabindex="-1">
+        <section class="overview-header" aria-labelledby="pageTitle">
+            <div><p class="eyebrow">AZURE GLOBAL INFRASTRUCTURE</p><h1 id="pageTitle">Network map<span class="heading-period">.</span></h1></div>
+            <div class="last-measurement" id="lastMeasurement">
+                <i data-lucide="clock-3"></i>
+                <div><span class="last-measurement-label" id="measurementLabel">Latest measurement</span><span class="last-measurement-value" id="lastMeasurementValue">Connecting&hellip;</span></div>
             </div>
+        </section>
 
-            <div class="destination-filter">
-                <label>Destination Regions Filter</label>
-                <div class="filter-controls">
-                    <button id="selectAllDest">Select All</button>
-                    <button id="selectNoneDest">Clear All</button>
-                </div>
-                <div class="geo-filters" id="geoFilters">
-                    <!-- Populated by JavaScript -->
-                </div>
-                <div class="regions-list-toggle" id="regionsListToggle">
-                    <span>Show individual regions</span>
-                    <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </div>
-                <div class="destination-checkboxes" id="destinationCheckboxes">
-                    <!-- Populated by JavaScript -->
-                </div>
-                <div class="filter-summary" id="filterSummary">All regions selected</div>
-            </div>
+        <section class="metrics" aria-label="Global network statistics">
+            <div class="metric"><div class="metric-label"><i data-lucide="globe-2"></i>Measured regions</div><div class="metric-value" id="metricRegions">--</div><div class="metric-caption" id="metricCoverage">Global Azure network</div></div>
+            <div class="metric"><div class="metric-label"><i data-lucide="git-branch"></i>Directional connections</div><div class="metric-value" id="metricConnections">--</div><div class="metric-caption" id="metricMeasurements">Latest sample per direction</div></div>
+            <div class="metric"><div class="metric-label"><i data-lucide="activity"></i>Average latency</div><div class="metric-value"><span id="metricAverage">--</span><span class="metric-unit">ms</span></div><div class="metric-caption">One-way &middot; all connections</div></div>
+            <div class="metric"><div class="metric-label"><i data-lucide="zap"></i>Fastest connection</div><div class="metric-value metric-highlight"><span id="metricFastest">--</span><span class="metric-unit">ms</span></div><div class="metric-caption" id="metricFastestRoute">--</div></div>
+        </section>
 
-            <div class="latency-legend">
-                <h3>Region Legend</h3>
-                <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">Region Type</p>
-                <div class="legend-item">
-                    <div class="legend-color-circle" style="background: #00ff88;"></div>
-                    <span>Recommended</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color-circle" style="background: #0078d4;"></div>
-                    <span>Other</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color-circle" style="background: #a855f7;"></div>
-                    <span>Restricted</span>
-                </div>
-            </div>
+        <div class="data-notice" id="dataNotice" role="status" hidden></div>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-            <div class="latency-legend">
-                <h3>RTT Legend</h3>
-                <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">TCP Round-Trip Time</p>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #22c55e;"></div>
-                    <span>Critical (&lt; 10 ms)</span>
+        <section class="network-workspace" id="mapWorkspace" role="tabpanel" aria-labelledby="mapViewBtn">
+            <aside class="sidebar" id="sidebar" aria-label="Route filters" tabindex="-1">
+                <div class="panel-heading"><h2>Route explorer</h2><button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close filters"><i data-lucide="x"></i></button><i class="panel-heading-icon" data-lucide="sliders-horizontal"></i></div>
+                <div class="region-selector">
+                    <label class="eyebrow" for="sourceRegion">SOURCE REGION</label>
+                    <select id="sourceRegion"><option value="">All regions</option></select>
+                    <div class="source-meta" id="sourceMeta">Global network</div>
                 </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #84cc16;"></div>
-                    <span>Real-time (10-50 ms)</span>
+                <div class="destination-filter">
+                    <div class="filter-heading"><h3>Destinations</h3><div class="filter-controls">
+                        <button class="icon-btn small" id="selectAllDest" aria-label="Select all destinations" data-tooltip="Select all"><i data-lucide="list-checks"></i></button>
+                        <button class="icon-btn small" id="selectNoneDest" aria-label="Clear all destinations" data-tooltip="Clear all"><i data-lucide="list-x"></i></button>
+                    </div></div>
+                    <div class="geo-filters" id="geoFilters"></div>
+                    <button class="regions-list-toggle" id="regionsListToggle" aria-expanded="false" aria-controls="destinationCheckboxes"><span>Individual regions</span><i class="toggle-icon" data-lucide="chevron-down"></i></button>
+                    <div class="destination-checkboxes" id="destinationCheckboxes">
+                        <label class="search-field"><i data-lucide="search"></i><input type="search" id="regionSearch" placeholder="Find a region" aria-label="Find a destination region"></label>
+                    </div>
+                    <div class="filter-summary" id="filterSummary">All regions selected</div>
                 </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #eab308;"></div>
-                    <span>Interactive (50-150 ms)</span>
+                <div class="region-legend"><h3>Region type</h3><div><span><b class="region-dot recommended"></b>Recommended</span><span><b class="region-dot other"></b>Other</span><span><b class="region-dot restricted"></b>Restricted</span></div></div>
+                <details class="region-details"><summary>Region details<i data-lucide="chevron-down"></i></summary><div class="stats-panel" id="statsPanel"><h3 class="sr-only" id="statsTitle">Statistics</h3><div id="statsBody"></div></div></details>
+            </aside>
+
+            <div class="map-panel">
+                <div class="map-heading">
+                    <div><h2>Global topology</h2><span id="mapRegionLabel">All Azure regions</span></div>
+                    <div class="map-tools">
+                        <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="Open route filters" aria-expanded="false" aria-controls="sidebar" data-tooltip="Route filters"><i data-lucide="sliders-horizontal"></i></button>
+                        <label class="toggle-control"><input type="checkbox" id="connectionsToggle" checked><span class="switch-track"></span><span>Routes</span></label>
+                        <button class="icon-btn" id="mapResetBtn" aria-label="Fit all regions on map" data-tooltip="Fit all regions"><i data-lucide="scan"></i></button>
+                    </div>
                 </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #f97316;"></div>
-                    <span>Standard (150-400 ms)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #ef4444;"></div>
-                    <span>Async (&gt; 400 ms)</span>
+                <div class="map-stage">
+                    <div id="map" aria-label="Interactive map of Azure regions"></div>
+                    <div class="map-coordinate"><span class="status-dot"></span><span id="mapCoordinates">GLOBAL NETWORK</span></div>
+                    <div class="map-legend" aria-label="Round-trip time legend">
+                        <div class="map-legend-title">ROUND-TRIP TIME <span>ms</span></div>
+                        <div class="latency-scale">
+                            <span title="Critical: less than 10 ms"><b class="critical-bg"></b>&lt; 10</span>
+                            <span title="Real-time: 10 to 50 ms"><b class="realtime-bg"></b>10&ndash;50</span>
+                            <span title="Interactive: 50 to 150 ms"><b class="interactive-bg"></b>50&ndash;150</span>
+                            <span title="Standard: 150 to 400 ms"><b class="standard-bg"></b>150&ndash;400</span>
+                            <span title="Asynchronous: 400 ms or more"><b class="async-bg"></b>&ge; 400</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <h2>Latency to Other Regions</h2>
-            <div class="latency-list" id="latencyList">
-                <div class="no-data">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                    <p>Select a source region to view latencies</p>
-                </div>
-            </div>
+            <aside class="routes-panel" aria-label="Regional latency ranking">
+                <div class="panel-heading"><h2>Latency ranking <span class="count-badge" id="routeCount">0</span></h2><button class="icon-btn small" id="exportRoutesBtn" aria-label="Export visible routes as CSV" data-tooltip="Export routes"><i data-lucide="download"></i></button></div>
+                <div class="route-context"><span class="region-dot recommended"></span><span id="routeSource">All regions</span><i data-lucide="arrow-up-right"></i></div>
+                <label class="search-field route-search"><i data-lucide="search"></i><input type="search" id="routeSearch" placeholder="Search destinations" aria-label="Search ranked destinations"></label>
+                <div class="ranking-toolbar"><span>DESTINATION</span><select id="routeSort" aria-label="Sort destinations"><option value="latency">Lowest RTT</option><option value="latency-desc">Highest RTT</option><option value="name">Name A-Z</option></select></div>
+                <div class="latency-list" id="latencyList"><div class="no-data"><i data-lucide="route"></i><p>No source selected</p></div></div>
+                <div class="route-footnote"><i data-lucide="arrow-down-up"></i><span>Round-trip latency &middot; milliseconds</span></div>
+            </aside>
+        </section>
 
-            <div class="stats-panel" id="statsPanel">
-                <h3 id="statsTitle">Statistics</h3>
-                <div id="statsBody"></div>
-            </div>
-        </aside>
-
-        <div id="map"></div>
-        <div id="matrix" style="display:none"></div>
-    </div>
+        <section id="matrix" role="tabpanel" aria-labelledby="matrixViewBtn" style="display:none"></section>
+    </main>
 
     <footer class="site-footer">
-        <span>Azure Region Span · <a href="https://github.com/vmisson/azure-region-span/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a> · Unofficial tool — not affiliated with Microsoft</span>
-        <span class="site-footer-sep">|</span>
-        <span>Official data: <a href="https://learn.microsoft.com/en-us/azure/networking/azure-network-latency" target="_blank" rel="noopener noreferrer">Azure network latency</a></span>
-        <span class="site-footer-sep">|</span>
-        <span>Friendly project: <a href="https://github.com/az-scout/az-scout" target="_blank" rel="noopener noreferrer">az-scout</a></span>
+        <span>Region Span <span class="site-footer-sep">/</span> Unofficial project. Not affiliated with Microsoft.</span>
+        <div><a href="https://learn.microsoft.com/en-us/azure/networking/azure-network-latency" target="_blank" rel="noopener noreferrer">Official Azure data<i data-lucide="arrow-up-right"></i></a><a href="https://github.com/az-scout/az-scout" target="_blank" rel="noopener noreferrer">az-scout<i data-lucide="arrow-up-right"></i></a><a href="https://github.com/vmisson/azure-region-span/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></div>
     </footer>
+    <div class="toast" id="toast" role="status" hidden></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="regions.js"></script>
-    <script src="matrix.js"></script>
-    <script src="app.js"></script>
-    <script>
-        // Mobile menu functionality
-        (function() {
-            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-            const sidebar = document.getElementById('sidebar');
-            const sidebarOverlay = document.getElementById('sidebarOverlay');
-            const sidebarClose = document.getElementById('sidebarClose');
-
-            function openSidebar() {
-                sidebar.classList.add('open');
-                sidebarOverlay.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            }
-
-            function closeSidebar() {
-                sidebar.classList.remove('open');
-                sidebarOverlay.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-
-            if (mobileMenuBtn) {
-                mobileMenuBtn.addEventListener('click', openSidebar);
-            }
-
-            if (sidebarClose) {
-                sidebarClose.addEventListener('click', closeSidebar);
-            }
-
-            if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', closeSidebar);
-            }
-
-            // Close sidebar when selecting a region on mobile
-            const sourceRegion = document.getElementById('sourceRegion');
-            if (sourceRegion) {
-                sourceRegion.addEventListener('change', function() {
-                    if (window.innerWidth <= 768) {
-                        setTimeout(closeSidebar, 300);
-                    }
-                });
-            }
-        })();
-
-        // View toggle (Map ↔ Matrix) with URL parameter support
-        (function() {
-            const mapViewBtn = document.getElementById('mapViewBtn');
-            const matrixViewBtn = document.getElementById('matrixViewBtn');
-            const mapEl = document.getElementById('map');
-            const matrixEl = document.getElementById('matrix');
-            const sidebar = document.getElementById('sidebar');
-
-            function switchToMap() {
-                mapEl.style.display = '';
-                matrixEl.style.display = 'none';
-                mapViewBtn.classList.add('active');
-                matrixViewBtn.classList.remove('active');
-                sidebar.style.display = '';
-                const url = new URL(window.location);
-                url.searchParams.delete('view');
-                url.searchParams.delete('mgeo');
-                url.searchParams.delete('msort');
-                url.searchParams.delete('msrc');
-                url.searchParams.delete('mdst');
-                history.replaceState(null, '', url);
-            }
-
-            function switchToMatrix() {
-                mapEl.style.display = 'none';
-                matrixEl.style.display = '';
-                matrixViewBtn.classList.add('active');
-                mapViewBtn.classList.remove('active');
-                sidebar.style.display = 'none';
-                if (window.matrixView) window.matrixView.show();
-                const url = new URL(window.location);
-                url.searchParams.set('view', 'matrix');
-                history.replaceState(null, '', url);
-            }
-
-            if (mapViewBtn) mapViewBtn.addEventListener('click', switchToMap);
-            if (matrixViewBtn) matrixViewBtn.addEventListener('click', switchToMatrix);
-
-            // Auto-switch based on URL param
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('view') === 'matrix' || params.has('mgeo') || params.has('msort') || params.has('msrc') || params.has('mdst')) {
-                // Defer until data is loaded
-                const waitForMatrix = setInterval(function() {
-                    if (window.matrixView) {
-                        clearInterval(waitForMatrix);
-                        switchToMatrix();
-                    }
-                }, 200);
-                // Safety timeout
-                setTimeout(function() { clearInterval(waitForMatrix); }, 15000);
-            }
-        })();
-    </script>
+    <script src="matrix.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

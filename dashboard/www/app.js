@@ -19,13 +19,13 @@
 /**
  * Color codes used to distinguish region types on the map.
  * - Green: recommended regions
- * - Purple: DR/restricted regions (access limited to disaster recovery scenarios)
+ * - Orange: DR/restricted regions (access limited to disaster recovery scenarios)
  * - Blue: other regions
  * @type {Object.<string, string>}
  */
 const REGION_TYPE_COLORS = {
-    recommended: '#00ff88',
-    restricted: '#a855f7',
+    recommended: '#107c10',
+    restricted: '#d83b01',
     other: '#0078d4'
 };
 
@@ -49,6 +49,19 @@ function getRegionStatus(region) {
     return 'Other';
 }
 
+function downloadCSV(rows, filename) {
+    const csv = rows.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 class LatencyMapApp {
     /**
      * Creates a new LatencyMapApp instance.
@@ -68,7 +81,13 @@ class LatencyMapApp {
         /** @type {Set<string>} Set of selected destination region IDs */
         this.selectedDestinations = new Set();
         /** @type {string} Base URL for the latency API */
-        this.apiBaseUrl = 'https://func-latency-api-001.azurewebsites.net/api';
+        const localDevelopment = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+        this.apiBaseUrl = window.LATENCY_API_BASE_URL || (localDevelopment ? '/api' : 'https://func-latency-api-001.azurewebsites.net/api');
+        this.isDemo = false;
+        this.visibleConnections = [];
+        this.showConnections = true;
+        this.sourceLabel = null;
+        this.activeDestination = null;
         
         this.init();
     }
@@ -79,6 +98,7 @@ class LatencyMapApp {
      * @async
      */
     async init() {
+        window.lucide?.createIcons();
         this.updateProgress(0, 'Initializing map...');
         this.initMap();
         
@@ -90,9 +110,16 @@ class LatencyMapApp {
         
         this.updateProgress(50, 'Fetching latency data...');
         await this.loadLatencyData();
+
+        const params = new URLSearchParams(window.location.search);
+        const source = params.has('source') ? params.get('source') : 'francecentral';
+        if (AZURE_REGIONS[source]) this.selectRegion(source, false);
+        else this.clearSelection();
+        this.fitNetwork();
+        const matrixRequested = params.get('view') === 'matrix' || ['mgeo', 'msort', 'msrc', 'mdst'].some(key => params.has(key));
+        this.switchView(matrixRequested ? 'matrix' : 'map', false);
         
         this.updateProgress(100, 'Complete!');
-        await this.delay(300);
         this.hideLoading();
     }
 
@@ -121,45 +148,58 @@ class LatencyMapApp {
     }
 
     /**
-     * Initializes the Leaflet map with dark theme tiles.
+    * Initializes the Leaflet map with a light geographic basemap.
      * Centers the map on the world view.
      */
     initMap() {
-        // Initialize the map centered on the world
         this.map = L.map('map', {
-            center: [20, 0],
+            center: [24, 12],
             zoom: 2,
-            minZoom: 2,
+            minZoom: 0.5,
             maxZoom: 8,
+            zoomSnap: 0.25,
+            zoomDelta: 0.5,
+            scrollWheelZoom: true,
+            zoomControl: false,
             worldCopyJump: true
         });
 
-        // Add dark theme tile layer
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-            subdomains: 'abcd',
-            maxZoom: 19
+        L.control.zoom({ position: 'bottomright' }).addTo(this.map);
+        this.map.createPane('connections').style.zIndex = '350';
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>, DeLorme, NAVTEQ',
+            maxZoom: 16
         }).addTo(this.map);
+    }
+
+    fitNetwork() {
+        this.map.invalidateSize();
+        this.map.fitBounds(Object.values(AZURE_REGIONS).map(region => region.coordinates), {
+            paddingTopLeft: [28, 40],
+            paddingBottomRight: [28, 85],
+            maxZoom: 3,
+            animate: false
+        });
     }
 
     /**
      * Creates circle markers for each Azure region on the map.
      * Markers are color-coded based on region type:
-     * - Green (#00ff88): Recommended regions
+    * - Green (#107c10): Recommended regions
      * - Blue (#0078d4): Alternate regions
      */
     initRegionMarkers() {
         // Create markers for each Azure region
-        // Green (#00ff88) for recommended regions, Blue (#0078d4) for alternate regions
+        // Green (#107c10) for recommended regions, Blue (#0078d4) for alternate regions
         Object.entries(AZURE_REGIONS).forEach(([regionId, region]) => {
             const markerColor = getRegionColor(region);
             const marker = L.circleMarker(region.coordinates, {
-                radius: 8,
+                radius: 5,
                 fillColor: markerColor,
                 color: '#ffffff',
-                weight: 2,
+                weight: 1.5,
                 opacity: 1,
-                fillOpacity: 0.8
+                fillOpacity: 1
             });
 
             const regionStatus = getRegionStatus(region);
@@ -171,6 +211,17 @@ class LatencyMapApp {
 
             marker.on('click', () => this.selectRegion(regionId));
             marker.addTo(this.map);
+            const markerElement = marker.getElement();
+            markerElement.setAttribute('tabindex', '0');
+            markerElement.setAttribute('role', 'button');
+            markerElement.setAttribute('aria-label', `Select ${region.displayName}`);
+            markerElement.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.selectRegion(regionId);
+                }
+            });
             
             this.markers[regionId] = marker;
         });
@@ -195,10 +246,137 @@ class LatencyMapApp {
 
         sourceSelect.addEventListener('change', (e) => {
             this.selectRegion(e.target.value);
+            if (document.getElementById('sidebar').classList.contains('open')) this.setSidebarOpen(false);
         });
 
         // Initialize destination filter checkboxes
         this.initDestinationFilter();
+        this.bindDashboardEvents();
+        window.lucide?.createIcons();
+    }
+
+    bindDashboardEvents() {
+        document.getElementById('mapViewBtn').addEventListener('click', () => this.switchView('map'));
+        document.getElementById('matrixViewBtn').addEventListener('click', () => this.switchView('matrix'));
+        document.querySelector('.view-toggle').addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const view = event.key === 'Home' ? 'map' : event.key === 'End' ? 'matrix' : document.body.dataset.view === 'map' ? 'matrix' : 'map';
+            this.switchView(view);
+            document.getElementById(`${view}ViewBtn`).focus();
+        });
+        document.getElementById('mapResetBtn').addEventListener('click', () => this.fitNetwork());
+        document.getElementById('connectionsToggle').addEventListener('change', event => {
+            this.showConnections = event.target.checked;
+            this.refreshDisplay();
+        });
+        document.getElementById('regionSearch').addEventListener('input', event => {
+            const query = event.target.value.toLowerCase().trim();
+            document.querySelectorAll('.destination-checkbox-item').forEach(item => {
+                item.hidden = !item.textContent.toLowerCase().includes(query) && !item.querySelector('input').value.includes(query);
+            });
+        });
+        document.getElementById('routeSearch').addEventListener('input', () => this.refreshDisplay());
+        document.getElementById('routeSort').addEventListener('change', () => this.refreshDisplay());
+        document.getElementById('exportRoutesBtn').addEventListener('click', () => this.exportRoutes());
+        document.getElementById('refreshBtn').addEventListener('click', async () => {
+            const button = document.getElementById('refreshBtn');
+            button.disabled = true;
+            button.classList.add('is-refreshing');
+            const url = new URL(window.location);
+            url.searchParams.delete('demo');
+            history.replaceState(null, '', url);
+            await this.loadLatencyData();
+            this.refreshDisplay();
+            button.classList.remove('is-refreshing');
+            button.disabled = false;
+            this.showToast(this.loadError ? 'Could not refresh. Current data retained.' : 'Measurements refreshed');
+        });
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => this.setSidebarOpen(true));
+        document.getElementById('sidebarClose').addEventListener('click', () => this.setSidebarOpen(false));
+        document.getElementById('sidebarOverlay').addEventListener('click', () => this.setSidebarOpen(false));
+        document.addEventListener('keydown', event => {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar.classList.contains('open')) return;
+            if (event.key === 'Escape') this.setSidebarOpen(false);
+            if (event.key !== 'Tab') return;
+            const focusable = [...sidebar.querySelectorAll('button, input, select, summary')].filter(element => element.offsetParent !== null);
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === sidebar)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+        window.matchMedia('(max-width: 1023px)').addEventListener('change', () => this.setSidebarOpen(false, false));
+        this.setSidebarOpen(false, false);
+    }
+
+    setSidebarOpen(open, restoreFocus = true) {
+        const sidebar = document.getElementById('sidebar');
+        const mobile = window.matchMedia('(max-width: 1023px)').matches;
+        sidebar.classList.toggle('open', open);
+        sidebar.inert = mobile && !open;
+        document.getElementById('sidebarOverlay').classList.toggle('active', open);
+        document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', String(open));
+        document.body.style.overflow = open ? 'hidden' : '';
+        if (open) document.getElementById('sidebarClose').focus();
+        else if (restoreFocus && mobile) document.getElementById('mobileMenuBtn').focus();
+    }
+
+    switchView(view, syncUrl = true) {
+        const matrix = view === 'matrix';
+        document.body.dataset.view = view;
+        document.getElementById('mapWorkspace').hidden = matrix;
+        document.getElementById('matrix').style.display = matrix ? '' : 'none';
+        document.getElementById('pageTitle').firstChild.textContent = matrix ? 'Latency matrix' : 'Network map';
+        ['map', 'matrix'].forEach(name => {
+            const button = document.getElementById(`${name}ViewBtn`);
+            button.classList.toggle('active', name === view);
+            button.setAttribute('aria-selected', String(name === view));
+            button.tabIndex = name === view ? 0 : -1;
+        });
+        if (matrix) window.matrixView?.show();
+        else {
+            window.matrixView?.hide();
+            this.map.invalidateSize();
+        }
+        if (syncUrl) {
+            const url = new URL(window.location);
+            if (matrix) url.searchParams.set('view', 'matrix');
+            else ['view', 'mgeo', 'msort', 'msrc', 'mdst'].forEach(key => url.searchParams.delete(key));
+            history.replaceState(null, '', url);
+        }
+    }
+
+    showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.hidden = false;
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => { toast.hidden = true; }, 3500);
+    }
+
+    exportRoutes() {
+        if (!this.visibleConnections.length) {
+            this.showToast('No visible routes to export');
+            return;
+        }
+        const rows = [['Source', 'Destination', 'Outbound (ms)', 'Inbound (ms)', 'RTT (ms)', 'Average one-way (ms)', 'Measurements', 'Data mode']];
+        this.visibleConnections.forEach(connection => {
+            rows.push([
+                AZURE_REGIONS[this.selectedRegion]?.displayName || this.selectedRegion,
+                AZURE_REGIONS[connection.destination]?.displayName || connection.destination,
+                connection.forwardLatency?.toFixed(2), connection.reverseLatency?.toFixed(2),
+                connection.rtt?.toFixed(2), connection.avgLatency?.toFixed(2),
+                connection.forwardCount + connection.reverseCount, this.isDemo ? 'Demo' : 'Measured'
+            ]);
+        });
+        downloadCSV(rows, `${this.isDemo ? 'demo-' : ''}azure-routes-${this.selectedRegion}.csv`);
+        this.showToast(`${this.visibleConnections.length} routes exported`);
     }
 
     /**
@@ -280,10 +458,7 @@ class LatencyMapApp {
         toggleBtn.addEventListener('click', () => {
             toggleBtn.classList.toggle('open');
             checkboxContainer.classList.toggle('open');
-            const span = toggleBtn.querySelector('span');
-            span.textContent = checkboxContainer.classList.contains('open') 
-                ? 'Hide individual regions' 
-                : 'Show individual regions';
+            toggleBtn.setAttribute('aria-expanded', String(checkboxContainer.classList.contains('open')));
         });
 
         this.updateFilterSummary();
@@ -309,7 +484,10 @@ class LatencyMapApp {
             const btn = document.createElement('button');
             btn.className = 'geo-filter-btn active';
             btn.dataset.geo = geoId;
+            btn.setAttribute('role', 'checkbox');
+            btn.setAttribute('aria-checked', 'true');
             btn.innerHTML = `
+                <span class="geo-check" aria-hidden="true"><i data-lucide="check"></i></span>
                 <span class="geo-label">${geoInfo.displayName}</span>
                 <span class="count">${count}</span>
             `;
@@ -372,6 +550,7 @@ class LatencyMapApp {
             const selectedCount = geoRegions.filter(regionId => this.selectedDestinations.has(regionId)).length;
             const allSelected = selectedCount === geoRegions.length;
             const someSelected = selectedCount > 0 && selectedCount < geoRegions.length;
+            btn.setAttribute('aria-checked', someSelected ? 'mixed' : String(allSelected));
             
             btn.classList.remove('active', 'partial');
             if (allSelected) {
@@ -408,6 +587,17 @@ class LatencyMapApp {
             this.drawConnections(this.selectedRegion);
             this.updateLatencyList(this.selectedRegion);
         }
+        this.updateSelectionDetails();
+    }
+
+    updateSelectionDetails() {
+        const region = AZURE_REGIONS[this.selectedRegion];
+        document.getElementById('sourceMeta').textContent = region ? [region.city, region.country].filter(Boolean).join(', ') : 'Global network';
+        document.getElementById('routeSource').textContent = region?.displayName || 'No source selected';
+        document.getElementById('mapRegionLabel').textContent = region ? `${region.displayName} / ${this.visibleConnections.length} destinations` : `${Object.keys(AZURE_REGIONS).length} Azure regions`;
+        document.getElementById('mapCoordinates').textContent = region
+            ? `${Math.abs(region.coordinates[0]).toFixed(2)} ${region.coordinates[0] >= 0 ? 'N' : 'S'} / ${Math.abs(region.coordinates[1]).toFixed(2)} ${region.coordinates[1] >= 0 ? 'E' : 'W'}`
+            : 'GLOBAL NETWORK';
     }
 
     /**
@@ -416,36 +606,49 @@ class LatencyMapApp {
      * @async
      */
     async loadLatencyData() {
+        this.loadError = null;
         try {
             this.updateProgress(55, 'Connecting to API...');
-            // Fetch raw latency data (all measurements)
-            const response = await fetch(`${this.apiBaseUrl}/latency`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            if (new URLSearchParams(window.location.search).get('demo') === '1') {
+                this.latencyData = this.generateDemoData();
+                this.rawData = [];
+                this.isDemo = true;
+            } else {
+                const response = await fetch(`${this.apiBaseUrl}/latency`, { signal: AbortSignal.timeout(20000) });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                this.updateProgress(70, 'Downloading latency data...');
+                const rawData = await response.json();
+                if (!Array.isArray(rawData)) throw new Error('Invalid measurement data');
+                this.updateProgress(85, 'Processing data...');
+                const aggregated = this.aggregateLatencyData(rawData);
+                if (!aggregated.connections.length) throw new Error('No valid measurements');
+                this.rawData = rawData;
+                this.latencyData = aggregated;
+                this.isDemo = false;
             }
-            
-            this.updateProgress(70, 'Downloading latency data...');
-            const rawData = await response.json();
-            
-            this.updateProgress(85, 'Processing data...');
-            // Aggregate the data: keep latest measurement and count per connection
-            this.rawData = rawData;
-            this.latencyData = this.aggregateLatencyData(rawData);
-            
-            this.updateProgress(95, 'Updating statistics...');
-            this.updateStats();
-            this.updateLastMeasurement();
-            this.initMatrixView();
         } catch (error) {
-            console.error('Error loading latency data:', error);
-            this.updateProgress(80, 'Using demo data...');
-            // Use demo data if API is not available
-            this.rawData = [];
-            this.latencyData = this.generateDemoData();
-            this.updateStats();
-            this.updateLastMeasurement();
-            this.initMatrixView();
+            this.loadError = error;
+            if (!this.latencyData) {
+                this.rawData = [];
+                this.latencyData = this.generateDemoData();
+                this.isDemo = true;
+            }
         }
+        this.updateProgress(95, 'Updating statistics...');
+        this.updateDataStatus();
+        this.updateStats();
+        this.updateLastMeasurement();
+        this.initMatrixView();
+    }
+
+    updateDataStatus() {
+        document.getElementById('dataStatus').classList.toggle('demo', this.isDemo);
+        document.getElementById('dataStatusText').textContent = this.isDemo ? 'Demo data' : this.loadError ? 'Saved measurements' : 'Measured data';
+        const notice = document.getElementById('dataNotice');
+        notice.hidden = !this.isDemo && !this.loadError;
+        notice.textContent = this.isDemo
+            ? `${this.loadError ? 'Live measurements are unavailable. ' : ''}Demo data: simulated latencies, not actual Azure measurements.`
+            : this.loadError ? 'The API could not be reached. The last loaded measurements are still displayed.' : '';
     }
 
     /**
@@ -478,13 +681,13 @@ class LatencyMapApp {
             const latencyRaw = entity.latency;
             const timestamp = entity.timestamp;
 
-            if (source && destination && latencyRaw) {
+            const latency = this.parseLatency(latencyRaw);
+            if (typeof source === 'string' && source && typeof destination === 'string' && destination && latency !== null) {
                 regions.add(source);
                 regions.add(destination);
 
                 const key = `${source}->${destination}`;
                 const existing = latencyMap.get(key);
-                const latency = this.parseLatency(latencyRaw);
 
                 if (!existing) {
                     // First measurement for this connection
@@ -522,22 +725,13 @@ class LatencyMapApp {
      * @returns {number|null} Latency in milliseconds, or null if invalid
      */
     parseLatency(latencyStr) {
-        if (!latencyStr) return null;
-        
-        const match = latencyStr.match(/([0-9.]+)\s*(us|ms)/);
-        if (!match) {
-            // Try parsing as plain number
-            const num = parseFloat(latencyStr);
-            return isNaN(num) ? null : num;
-        }
-        
-        const value = parseFloat(match[1]);
-        const unit = match[2];
-        
-        if (unit === 'us') {
-            return value / 1000; // Convert microseconds to milliseconds
-        }
-        return value; // Already in milliseconds
+        if (typeof latencyStr === 'number') return Number.isFinite(latencyStr) && latencyStr >= 0 ? latencyStr : null;
+        if (typeof latencyStr !== 'string') return null;
+        const match = latencyStr.trim().match(/^(\d+(?:\.\d+)?|\.\d+)\s*(us|\u00b5s|\u03bcs|ms)?$/i);
+        if (!match) return null;
+        const value = Number(match[1]);
+        const unit = match[2]?.toLowerCase();
+        return unit && unit !== 'ms' ? value / 1000 : value;
     }
 
     /**
@@ -561,15 +755,16 @@ class LatencyMapApp {
                         destCoords[0], destCoords[1]
                     );
                     
-                    // Approximate latency: ~1ms per 100km + some randomness
-                    const latency = (distance / 100) + (Math.random() * 10);
+                    const seed = [...`${source}|${destination}`].reduce((total, character) => (total * 31 + character.charCodeAt(0)) >>> 0, 0);
+                    const latency = (distance / 100) + (seed % 500) / 100 + 0.4;
                     
                     connections.push({
                         source,
                         destination,
                         latency: Math.round(latency * 100) / 100,
                         latencyRaw: `${Math.round(latency * 100) / 100} ms`,
-                        timestamp: new Date().toISOString()
+                        timestamp: null,
+                        measurementCount: 0
                     });
                 }
             });
@@ -618,6 +813,17 @@ class LatencyMapApp {
      */
     updateStats() {
         if (!this.latencyData) return;
+        const connections = this.latencyData.connections.filter(connection => Number.isFinite(connection.latency) && connection.source !== connection.destination);
+        const fastest = connections.reduce((best, connection) => !best || connection.latency < best.latency ? connection : best, null);
+        const average = connections.length ? connections.reduce((total, connection) => total + connection.latency, 0) / connections.length : null;
+        const formatCount = value => value.toLocaleString('en-US');
+        document.getElementById('metricRegions').textContent = formatCount(this.latencyData.regions.length);
+        document.getElementById('metricCoverage').textContent = `${Object.keys(GEO_GROUPS).length} geographies / ${Object.keys(AZURE_REGIONS).length} mapped regions`;
+        document.getElementById('metricConnections').textContent = formatCount(connections.length);
+        document.getElementById('metricMeasurements').textContent = this.isDemo ? 'Simulated directional connections' : `${formatCount(this.rawData.length)} collected measurements`;
+        document.getElementById('metricAverage').textContent = average?.toFixed(2) ?? '--';
+        document.getElementById('metricFastest').textContent = fastest?.latency.toFixed(2) ?? '--';
+        document.getElementById('metricFastestRoute').textContent = fastest ? `${AZURE_REGIONS[fastest.source]?.displayName || fastest.source} / ${AZURE_REGIONS[fastest.destination]?.displayName || fastest.destination}` : 'No measured connections';
 
         const titleEl = document.getElementById('statsTitle');
         const bodyEl = document.getElementById('statsBody');
@@ -726,9 +932,9 @@ class LatencyMapApp {
             this.statRow('Location', location) +
             this.statRow('Geography', geo) +
             this.statRow('Measured Peers', stats.peers) +
-            this.statRow('Average RTT', stats.avgRtt !== null ? `${stats.avgRtt.toFixed(2)} ms` : 'N/A', this.getRttColor(stats.avgRtt)) +
-            this.statRow('Fastest Peer', peerName(stats.best), this.getRttColor(stats.best?.rtt ?? null)) +
-            this.statRow('Slowest Peer', peerName(stats.worst), this.getRttColor(stats.worst?.rtt ?? null));
+            this.statRow('Average RTT', stats.avgRtt !== null ? `${stats.avgRtt.toFixed(2)} ms` : 'N/A', this.getRttTextColor(stats.avgRtt)) +
+            this.statRow('Fastest Peer', peerName(stats.best), this.getRttTextColor(stats.best?.rtt ?? null)) +
+            this.statRow('Slowest Peer', peerName(stats.worst), this.getRttTextColor(stats.worst?.rtt ?? null));
     }
 
     /**
@@ -738,6 +944,12 @@ class LatencyMapApp {
     updateLastMeasurement() {
         const valueEl = document.getElementById('lastMeasurementValue');
         if (!valueEl) return;
+        document.getElementById('measurementLabel').textContent = this.isDemo ? 'Data source' : 'Latest measurement';
+        if (this.isDemo) {
+            valueEl.textContent = 'Synthetic dataset';
+            document.getElementById('lastMeasurement').title = 'Distance-based simulation, not a real measurement';
+            return;
+        }
 
         let latest = null;
         const consider = (ts) => {
@@ -759,14 +971,15 @@ class LatencyMapApp {
             return;
         }
 
-        const formatted = latest.toLocaleString(undefined, {
+        const formatted = latest.toLocaleString('en-GB', {
             year: 'numeric',
             month: 'short',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: 'UTC'
         });
-        valueEl.textContent = formatted;
+        valueEl.textContent = `${formatted} UTC`;
         const parent = valueEl.closest('.last-measurement');
         if (parent) parent.title = `Last measurement: ${latest.toLocaleString()}`;
     }
@@ -776,8 +989,8 @@ class LatencyMapApp {
      * Clicking the same region again deselects it.
      * @param {string} regionId - Region identifier to select
      */
-    selectRegion(regionId) {
-        if (!regionId) {
+    selectRegion(regionId, recenter = true) {
+        if (!regionId || !AZURE_REGIONS[regionId]) {
             this.clearSelection();
             return;
         }
@@ -790,6 +1003,8 @@ class LatencyMapApp {
         }
 
         this.selectedRegion = regionId;
+        this.activeDestination = null;
+        this.sourceLabel?.remove();
         
         // Update dropdown
         document.getElementById('sourceRegion').value = regionId;
@@ -799,9 +1014,10 @@ class LatencyMapApp {
             const region = AZURE_REGIONS[id];
             const defaultColor = getRegionColor(region);
             marker.setStyle({
-                radius: 8,
+                radius: 5,
                 fillColor: defaultColor
             });
+            marker.getElement().setAttribute('aria-pressed', String(id === regionId));
         });
 
         // Highlight selected marker (keep region type color, just increase size)
@@ -809,18 +1025,23 @@ class LatencyMapApp {
             const region = AZURE_REGIONS[regionId];
             const selectedColor = getRegionColor(region);
             this.markers[regionId].setStyle({
-                radius: 12,
+                radius: 9,
                 fillColor: selectedColor
             });
 
-            // Center map on selected region
-            this.map.setView(region.coordinates, 3, { animate: true });
+            if (recenter) this.map.panTo(region.coordinates, { animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches });
+            this.sourceLabel = L.tooltip({ permanent: true, direction: 'top', offset: [0, -12], className: 'source-tooltip' })
+                .setLatLng(region.coordinates).setContent(region.displayName).addTo(this.map);
         }
 
         // Draw connections and update list
         this.drawConnections(regionId);
         this.updateLatencyList(regionId);
         this.updateStats();
+        this.updateSelectionDetails();
+        const url = new URL(window.location);
+        url.searchParams.set('source', regionId);
+        history.replaceState(null, '', url);
     }
 
     /**
@@ -829,15 +1050,21 @@ class LatencyMapApp {
      */
     clearSelection() {
         this.selectedRegion = null;
+        this.visibleConnections = [];
+        this.activeDestination = null;
+        this.sourceLabel?.remove();
+        document.getElementById('sourceRegion').value = '';
+        document.getElementById('routeCount').textContent = '0';
         
         // Reset all markers to their region type colors
         Object.entries(this.markers).forEach(([id, marker]) => {
             const region = AZURE_REGIONS[id];
             const defaultColor = getRegionColor(region);
             marker.setStyle({
-                radius: 8,
+                radius: 5,
                 fillColor: defaultColor
             });
+            marker.getElement().setAttribute('aria-pressed', 'false');
         });
 
         // Clear polylines
@@ -845,14 +1072,14 @@ class LatencyMapApp {
 
         // Clear latency list
         document.getElementById('latencyList').innerHTML = `
-            <div class="no-data">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                </svg>
-                <p>Select a source region to view latencies</p>
-            </div>
+            <div class="no-data"><i data-lucide="route"></i><p>No source selected</p></div>
         `;
         this.updateStats();
+        this.updateSelectionDetails();
+        const url = new URL(window.location);
+        url.searchParams.set('source', '');
+        history.replaceState(null, '', url);
+        window.lucide?.createIcons();
     }
 
     /**
@@ -871,7 +1098,7 @@ class LatencyMapApp {
     drawConnections(sourceRegion) {
         this.clearPolylines();
 
-        if (!this.latencyData || !this.latencyData.connections) return;
+        if (!this.latencyData || !this.latencyData.connections || !this.showConnections) return;
 
         const sourceCoords = AZURE_REGIONS[sourceRegion]?.coordinates;
         if (!sourceCoords) return;
@@ -929,9 +1156,10 @@ class LatencyMapApp {
                 [sourceCoords, peerRegion.coordinates],
                 {
                     color: color,
-                    weight: 3,
-                    opacity: 0.7,
-                    dashArray: null
+                    weight: 1.75,
+                    opacity: 0.85,
+                    dashArray: roundtripLatency === null ? '4 4' : null,
+                    pane: 'connections'
                 }
             );
 
@@ -947,7 +1175,7 @@ class LatencyMapApp {
 
             polyline.bindPopup(`
                 <div class="popup-title">${AZURE_REGIONS[sourceRegion].displayName} ↔ ${peerRegion.displayName}</div>
-                <div class="popup-rtt" style="color: ${color}">RTT: ${roundtripStr}</div>
+                <div class="popup-rtt" style="color: ${this.getRttTextColor(roundtripLatency)}">RTT: ${roundtripStr}</div>
                 <div class="popup-latency">Average (one-way): ${avgStr}</div>
                 <div class="popup-route">${AZURE_REGIONS[sourceRegion].displayName} → ${peerRegion.displayName}: ${forwardStr}</div>
                 <div class="popup-route">${peerRegion.displayName} → ${AZURE_REGIONS[sourceRegion].displayName}: ${reverseStr}</div>
@@ -955,6 +1183,9 @@ class LatencyMapApp {
             `);
 
             polyline.addTo(this.map);
+            polyline.destination = peerRegionId;
+            polyline.on('mouseover', () => polyline.setStyle({ weight: 3, opacity: 1 }));
+            polyline.on('mouseout', () => polyline.setStyle({ weight: 1.75, opacity: 0.85 }));
             this.polylines.push(polyline);
         });
     }
@@ -966,12 +1197,7 @@ class LatencyMapApp {
      * @returns {string} Hex color code
      */
     getLatencyColor(latency) {
-        if (latency === null || latency === undefined) return '#555555';
-        if (latency < 5)   return '#22c55e';  // Critical - green
-        if (latency < 25)  return '#84cc16';  // Real-time - lime
-        if (latency < 75)  return '#eab308';  // Interactive - yellow
-        if (latency < 200) return '#f97316';  // Standard - orange
-        return '#ef4444';                      // Async - red
+        return this.getRttColor(latency == null ? null : latency * 2);
     }
 
     /**
@@ -981,12 +1207,21 @@ class LatencyMapApp {
      * @returns {string} Hex color code
      */
     getRttColor(rtt) {
-        if (rtt === null || rtt === undefined) return '#555555';
-        if (rtt < 10)  return '#22c55e';  // Critical (RTT < 10 ms) - green
-        if (rtt < 50)  return '#84cc16';  // Real-time (RTT < 50 ms) - lime
-        if (rtt < 150) return '#eab308';  // Interactive (RTT < 150 ms) - yellow
-        if (rtt < 400) return '#f97316';  // Standard (RTT < 400 ms) - orange
-        return '#ef4444';                  // Async (RTT ≥ 400 ms) - red
+        if (rtt === null || rtt === undefined) return '#8a8886';
+        if (rtt < 10) return '#2e7d32';
+        if (rtt < 50) return '#e8c547';
+        if (rtt < 150) return '#e88b3a';
+        if (rtt < 400) return '#cb4b3f';
+        return '#7a2336';
+    }
+
+    getRttTextColor(rtt) {
+        if (rtt === null || rtt === undefined) return '#605e5c';
+        if (rtt < 10) return '#25662a';
+        if (rtt < 50) return '#806000';
+        if (rtt < 150) return '#a13a01';
+        if (rtt < 400) return '#b13029';
+        return '#7a2336';
     }
 
     /**
@@ -1049,7 +1284,12 @@ class LatencyMapApp {
         });
 
         // Build connections list with bidirectional data
-        const connections = Array.from(peerRegions).map(peerRegionId => {
+        const query = document.getElementById('routeSearch').value.toLowerCase().trim();
+        const sortMode = document.getElementById('routeSort').value;
+        const connections = Array.from(peerRegions).filter(regionId => {
+            const region = AZURE_REGIONS[regionId];
+            return `${region?.displayName || ''} ${region?.country || ''} ${regionId}`.toLowerCase().includes(query);
+        }).map(peerRegionId => {
             // Find forward connection (selected -> peer)
             const forwardConn = this.latencyData.connections.find(
                 c => c.source === sourceRegion && c.destination === peerRegionId
@@ -1076,17 +1316,28 @@ class LatencyMapApp {
                 forwardLatency,
                 reverseLatency,
                 avgLatency,
+                rtt: forwardLatency != null && reverseLatency != null ? forwardLatency + reverseLatency : null,
                 forwardCount: forwardConn?.measurementCount || 0,
                 reverseCount: reverseConn?.measurementCount || 0
             };
-        }).sort((a, b) => (a.avgLatency || 999) - (b.avgLatency || 999));
+        }).sort((first, second) => {
+            if (sortMode === 'name') return (AZURE_REGIONS[first.destination]?.displayName || first.destination).localeCompare(AZURE_REGIONS[second.destination]?.displayName || second.destination);
+            if (first.rtt === null) return second.rtt === null ? 0 : 1;
+            if (second.rtt === null) return -1;
+            return sortMode === 'latency-desc' ? second.rtt - first.rtt : first.rtt - second.rtt;
+        });
+
+        this.visibleConnections = connections;
+        document.getElementById('routeCount').textContent = String(connections.length);
 
         if (connections.length === 0) {
-            listContainer.innerHTML = '<div class="no-data"><p>No measurements available for this region</p></div>';
+            listContainer.innerHTML = `<div class="no-data"><i data-lucide="search-x"></i><p>${query ? 'No matching destinations' : this.selectedDestinations.size === 0 ? 'No destinations selected' : 'No measurements for this region'}</p></div>`;
+            window.lucide?.createIcons();
             return;
         }
 
-        listContainer.innerHTML = connections.map(conn => {
+        const maxRtt = Math.max(...connections.map(connection => connection.rtt || 0), 1);
+        listContainer.innerHTML = connections.map((conn, index) => {
             const destRegion = AZURE_REGIONS[conn.destination];
             const displayName = destRegion?.displayName || conn.destination;
             
@@ -1105,14 +1356,12 @@ class LatencyMapApp {
             const totalCount = conn.forwardCount + conn.reverseCount;
             
             return `
-                <div class="latency-item" data-destination="${conn.destination}">
-                    <div class="destination">${displayName}</div>
-                    <div class="latency-details">
-                        <div class="value ${rttClass}">${rttStr} ms RTT</div>
-                        <div class="bidirectional-info">Avg: ${avgStr} ms | ↗ ${forwardStr} ms | ↙ ${reverseStr} ms</div>
-                        <div class="measurement-count">${totalCount} measurements</div>
-                    </div>
-                </div>
+                <button class="latency-item${this.activeDestination === conn.destination ? ' active' : ''}" data-destination="${conn.destination}" aria-expanded="${this.activeDestination === conn.destination}">
+                    <span class="route-rank">${String(index + 1).padStart(2, '0')}</span>
+                    <span class="route-info"><span class="destination">${displayName}</span><span class="route-country">${destRegion?.country || conn.destination}</span></span>
+                    <span class="value ${rttClass}">${rttStr} <small>ms</small><span class="latency-bar"><b style="width:${rtt === null ? 0 : Math.max(4, rtt / maxRtt * 100)}%"></b></span></span>
+                    <span class="latency-details"><span class="bidirectional-info">Out ${forwardStr} ms / In ${reverseStr} ms</span><span>Average ${avgStr} ms</span><span class="measurement-count">${this.isDemo ? 'Simulated connection' : `${totalCount} measurements`}</span></span>
+                </button>
             `;
         }).join('');
 
@@ -1121,20 +1370,31 @@ class LatencyMapApp {
             item.addEventListener('click', () => {
                 const destination = item.dataset.destination;
                 const destRegion = AZURE_REGIONS[destination];
+                const expanded = this.activeDestination !== destination;
+                this.activeDestination = expanded ? destination : null;
+                listContainer.querySelectorAll('.latency-item').forEach(row => {
+                    const active = row.dataset.destination === this.activeDestination;
+                    row.classList.toggle('active', active);
+                    row.setAttribute('aria-expanded', String(active));
+                });
+                if (!expanded) {
+                    this.map.closePopup();
+                    return;
+                }
                 if (destRegion) {
-                    this.map.setView(destRegion.coordinates, 4, { animate: true });
-                    
-                    // Find and open the popup for this connection
-                    const connection = this.polylines.find(line => {
-                        const latlngs = line.getLatLngs();
-                        return latlngs[1].lat === destRegion.coordinates[0] &&
-                               latlngs[1].lng === destRegion.coordinates[1];
-                    });
+                    this.map.setView(destRegion.coordinates, Math.max(this.map.getZoom(), 3), { animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches });
+                    const connection = this.polylines.find(line => line.destination === destination);
                     
                     if (connection) {
-                        connection.openPopup();
+                        connection.openPopup(destRegion.coordinates);
                     }
                 }
+            });
+            item.addEventListener('mouseenter', () => {
+                this.polylines.forEach(line => line.setStyle({ weight: line.destination === item.dataset.destination ? 3 : 1.75, opacity: line.destination === item.dataset.destination ? 1 : 0.2 }));
+            });
+            item.addEventListener('mouseleave', () => {
+                this.polylines.forEach(line => line.setStyle({ weight: 1.75, opacity: 0.85 }));
             });
         });
     }
@@ -1144,6 +1404,8 @@ class LatencyMapApp {
      */
     hideLoading() {
         document.getElementById('loading').classList.add('hidden');
+        document.body.classList.add('ready');
+        window.lucide?.createIcons();
     }
 }
 
