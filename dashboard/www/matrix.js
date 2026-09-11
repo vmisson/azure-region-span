@@ -1,16 +1,3 @@
-/**
- * Matrix View for Azure Region Latency Dashboard
- * 
- * Renders a heatmap matrix of source×destination latencies with:
- * - Color-coded cells (green→red by latency)
- * - Sticky row/column headers
- * - Sparkline history on cell hover
- * - Region info on header hover
- * - Geography filter, multi-select source/dest, sort, CSV export
- * 
- * Self-contained: all CSS is injected via JS.
- */
-
 class MatrixView {
     constructor(containerEl) {
         this.container = containerEl;
@@ -20,52 +7,55 @@ class MatrixView {
         this.destRegions = [];
         this.filteredSources = [];
         this.filteredDests = [];
-        this.sortMode = 'name'; // 'name' or 'latency'
+        this.sortMode = 'name';
         this.geoFilter = 'all';
-        this.historyMap = new Map(); // "src|dst" → [{latency, timestamp}]
-        this.latencyLookup = new Map(); // "src|dst" → latency
-        this._styleInjected = false;
+        this.historyMap = new Map();
+        this.latencyLookup = new Map();
+        this._sourceSelection = null;
+        this._destSelection = null;
+        this._initialized = false;
         this._tooltipEl = null;
         this._sparklineEl = null;
+        this._popover = null;
+        document.addEventListener('pointerdown', event => {
+            if (!event.target.closest('.matrix-cell, .matrix-col-header, .matrix-row-header')) {
+                this._hideTooltip();
+                this._hideSparkline();
+            }
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                this._hideTooltip();
+                this._hideSparkline();
+            }
+        });
     }
 
-    /** Called once after data loads */
     init(rawData, aggregatedData) {
+        this._closePopover(false);
         this.rawData = rawData || [];
         this.aggregatedData = aggregatedData;
         if (!aggregatedData) return;
-
-        // Build history map from raw data
         this._buildHistoryMap();
-
-        // Build latency lookup from aggregated data
-        this.aggregatedData.connections.forEach(c => {
-            this.latencyLookup.set(`${c.source}|${c.destination}`, c.latency);
+        this.latencyLookup.clear();
+        aggregatedData.connections.forEach(connection => {
+            this.latencyLookup.set(`${connection.source}|${connection.destination}`, connection.latency);
         });
-
-        // Get region lists
-        this.sourceRegions = [...this.aggregatedData.regions].sort();
-        this.destRegions = [...this.aggregatedData.regions].sort();
-        this.filteredSources = [...this.sourceRegions];
-        this.filteredDests = [...this.destRegions];
-
-        // Read URL params for matrix filters
-        this._readURLParams();
-
-        this._injectStyles();
+        this.sourceRegions = [...aggregatedData.regions].sort();
+        this.destRegions = [...aggregatedData.regions].sort();
+        if (!this._initialized) {
+            this._readURLParams();
+            this._initialized = true;
+        }
         this._render();
     }
 
     _readURLParams() {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('mgeo')) this.geoFilter = params.get('mgeo');
-        if (params.get('msort')) this.sortMode = params.get('msort');
-        if (params.get('msrc')) {
-            this._sourceSelection = new Set(params.get('msrc').split(','));
-        }
-        if (params.get('mdst')) {
-            this._destSelection = new Set(params.get('mdst').split(','));
-        }
+        this.geoFilter = GEO_GROUPS[params.get('mgeo')] ? params.get('mgeo') : 'all';
+        this.sortMode = params.get('msort') === 'latency' ? 'latency' : 'name';
+        this._sourceSelection = params.has('msrc') ? new Set(params.get('msrc').split(',').filter(region => this.sourceRegions.includes(region))) : null;
+        this._destSelection = params.has('mdst') ? new Set(params.get('mdst').split(',').filter(region => this.destRegions.includes(region))) : null;
     }
 
     _syncURLParams() {
@@ -74,17 +64,12 @@ class MatrixView {
         else url.searchParams.delete('mgeo');
         if (this.sortMode !== 'name') url.searchParams.set('msort', this.sortMode);
         else url.searchParams.delete('msort');
-        // Source selection
-        if (this._sourceSelection && this._sourceSelection.size > 0 && this._sourceSelection.size < this.sourceRegions.length) {
-            url.searchParams.set('msrc', [...this._sourceSelection].join(','));
-        } else {
-            url.searchParams.delete('msrc');
-        }
-        // Dest selection
-        if (this._destSelection && this._destSelection.size > 0 && this._destSelection.size < this.destRegions.length) {
-            url.searchParams.set('mdst', [...this._destSelection].join(','));
-        } else {
-            url.searchParams.delete('mdst');
+        for (const [key, selection, regions] of [
+            ['msrc', this._sourceSelection, this.sourceRegions],
+            ['mdst', this._destSelection, this.destRegions]
+        ]) {
+            if (selection && selection.size !== regions.length) url.searchParams.set(key, [...selection].join(','));
+            else url.searchParams.delete(key);
         }
         url.searchParams.set('view', 'matrix');
         history.replaceState(null, '', url);
@@ -92,396 +77,296 @@ class MatrixView {
 
     show() {
         this.container.style.display = '';
-        // Re-render in case data changed
-        if (this.aggregatedData) this._render();
+        if (this.aggregatedData) {
+            this._render();
+            this._syncURLParams();
+        }
     }
 
     hide() {
         this.container.style.display = 'none';
+        this._closePopover(false);
         this._hideTooltip();
         this._hideSparkline();
     }
 
-    // ── Data helpers ──────────────────────────────────────────
-
     _buildHistoryMap() {
         this.historyMap.clear();
         this.rawData.forEach(entity => {
-            const src = entity.source;
-            const dst = entity.destination;
-            const latencyRaw = entity.latency;
-            const timestamp = entity.timestamp;
-            if (!src || !dst || !latencyRaw) return;
-            const latency = this._parseLatency(latencyRaw);
-            if (latency === null) return;
-            const key = `${src}|${dst}`;
+            const latency = this._parseLatency(entity.latency);
+            if (!entity.source || !entity.destination || latency === null || !Number.isFinite(Date.parse(entity.timestamp))) return;
+            const key = `${entity.source}|${entity.destination}`;
             if (!this.historyMap.has(key)) this.historyMap.set(key, []);
-            this.historyMap.get(key).push({ latency, timestamp });
+            this.historyMap.get(key).push({ latency, timestamp: entity.timestamp });
         });
-        // Sort each history by timestamp
-        this.historyMap.forEach(arr => {
-            arr.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        });
+        this.historyMap.forEach(samples => samples.sort((first, second) => Date.parse(first.timestamp) - Date.parse(second.timestamp)));
     }
 
-    _parseLatency(str) {
-        if (typeof str === 'number') return str;
-        if (!str) return null;
-        const s = String(str).trim().toLowerCase();
-        const num = parseFloat(s);
-        if (isNaN(num)) return null;
-        if (s.includes('us') || s.includes('µs')) return num / 1000;
-        return num; // ms
+    _parseLatency(value) {
+        return LatencyMapApp.prototype.parseLatency(value);
     }
 
-    _getLatency(src, dst) {
-        return this.latencyLookup.get(`${src}|${dst}`) ?? null;
+    _getLatency(source, destination) {
+        return this.latencyLookup.get(`${source}|${destination}`) ?? null;
     }
 
     _getColor(latency) {
-        // One-way thresholds = RTT/2. 5 application-tier bands:
-        // 1 Ultra-critical (RTT<10) | 2 Real-time (RTT<50) | 3 Interactive (RTT<150)
-        // 4 Standard Web/SaaS (RTT<500) | 5 Asynchronous / Batch (RTT≥500)
-        if (latency === null) return '#555555';
-        if (latency < 5)   return '#166534';  // 1 Ultra-critical - dark green
-        if (latency < 25)  return '#3f6212';  // 2 Real-time - dark lime
-        if (latency < 75)  return '#854d0e';  // 3 Interactive - dark yellow/amber
-        if (latency < 200) return '#9a3412';  // 4 Standard - dark orange
-        return '#991b1b';                      // 5 Asynchronous / Batch - dark red
+        if (latency === null) return '#f3f2f1';
+        return LatencyMapApp.prototype.getLatencyColor(latency);
     }
 
     _getTextColor(latency) {
-        if (latency === null) return '#888';
-        if (latency < 5)   return '#86efac';  // light green
-        if (latency < 25)  return '#bef264';  // light lime
-        if (latency < 75)  return '#fde047';  // light yellow
-        if (latency < 200) return '#fdba74';  // light orange
-        return '#fca5a5';                      // light red
+        if (latency === null) return '#605e5c';
+        if (latency < 5) return '#ffffff';
+        if (latency < 25) return '#443600';
+        if (latency < 75) return '#4a2607';
+        return '#ffffff';
     }
 
-    _regionName(id) {
-        const r = typeof AZURE_REGIONS !== 'undefined' && AZURE_REGIONS[id];
-        return r ? r.displayName : id;
+    _regionName(regionId) {
+        return AZURE_REGIONS[regionId]?.displayName || regionId;
     }
 
-    _regionInfo(id) {
-        const r = typeof AZURE_REGIONS !== 'undefined' && AZURE_REGIONS[id];
-        if (!r) return null;
-        return r;
+    _regionInfo(regionId) {
+        return AZURE_REGIONS[regionId] || null;
     }
 
     _geoGroupName(key) {
-        if (typeof GEO_GROUPS !== 'undefined' && GEO_GROUPS[key]) return GEO_GROUPS[key].displayName;
-        return key;
+        return GEO_GROUPS[key]?.displayName || key;
     }
 
-    _avgLatencyForRegion(regionId, peerList) {
-        // Outbound: avg of lookup(regionId → peer)
-        let sum = 0, count = 0;
-        peerList.forEach(peerId => {
-            if (regionId === peerId) return;
-            const lat = this.latencyLookup.get(`${regionId}|${peerId}`);
-            if (lat != null) { sum += lat; count++; }
-        });
-        return count > 0 ? sum / count : Infinity;
+    _avgLatencyForRegion(regionId, peers) {
+        const values = peers.filter(peer => peer !== regionId).map(peer => this._getLatency(regionId, peer)).filter(value => value !== null);
+        return values.length ? values.reduce((total, value) => total + value, 0) / values.length : Infinity;
     }
 
-    _avgLatencyToRegion(regionId, peerList) {
-        // Inbound: avg of lookup(peer → regionId)
-        let sum = 0, count = 0;
-        peerList.forEach(peerId => {
-            if (regionId === peerId) return;
-            const lat = this.latencyLookup.get(`${peerId}|${regionId}`);
-            if (lat != null) { sum += lat; count++; }
-        });
-        return count > 0 ? sum / count : Infinity;
+    _avgLatencyToRegion(regionId, peers) {
+        const values = peers.filter(peer => peer !== regionId).map(peer => this._getLatency(peer, regionId)).filter(value => value !== null);
+        return values.length ? values.reduce((total, value) => total + value, 0) / values.length : Infinity;
     }
-
-    // ── Filtering & sorting ──────────────────────────────────
 
     _applyFilters() {
         let sources = [...this.sourceRegions];
-        let dests = [...this.destRegions];
-
-        // Geo filter
+        let destinations = [...this.destRegions];
         if (this.geoFilter !== 'all') {
-            const filterFn = id => {
-                const r = this._regionInfo(id);
-                return r && r.geoGroup === this.geoFilter;
-            };
-            sources = sources.filter(filterFn);
-            dests = dests.filter(filterFn);
+            sources = sources.filter(region => this._regionInfo(region)?.geoGroup === this.geoFilter);
+            destinations = destinations.filter(region => this._regionInfo(region)?.geoGroup === this.geoFilter);
         }
-
-        // Source multi-select
-        if (this._sourceSelection && this._sourceSelection.size > 0 && this._sourceSelection.size < this.sourceRegions.length) {
-            sources = sources.filter(s => this._sourceSelection.has(s));
-        }
-        // Dest multi-select
-        if (this._destSelection && this._destSelection.size > 0 && this._destSelection.size < this.destRegions.length) {
-            dests = dests.filter(d => this._destSelection.has(d));
-        }
-
-        // Sort — use filtered peers for avg calculation
+        if (this._sourceSelection) sources = sources.filter(region => this._sourceSelection.has(region));
+        if (this._destSelection) destinations = destinations.filter(region => this._destSelection.has(region));
         if (this.sortMode === 'latency') {
-            // Sources: avg of their outbound latency to filtered dests
-            // Dests: avg of inbound latency from filtered sources (matches the column data)
-            const srcAvg = new Map(sources.map(s => [s, this._avgLatencyForRegion(s, dests)]));
-            const dstAvg = new Map(dests.map(d => [d, this._avgLatencyToRegion(d, sources)]));
-            sources.sort((a, b) => srcAvg.get(a) - srcAvg.get(b));
-            dests.sort((a, b) => dstAvg.get(a) - dstAvg.get(b));
+            const sourceAverages = new Map(sources.map(region => [region, this._avgLatencyForRegion(region, destinations)]));
+            const destinationAverages = new Map(destinations.map(region => [region, this._avgLatencyToRegion(region, sources)]));
+            sources.sort((first, second) => sourceAverages.get(first) - sourceAverages.get(second));
+            destinations.sort((first, second) => destinationAverages.get(first) - destinationAverages.get(second));
         } else {
-            const nameCmp = (a, b) => this._regionName(a).localeCompare(this._regionName(b));
-            sources.sort(nameCmp);
-            dests.sort(nameCmp);
+            const compareNames = (first, second) => this._regionName(first).localeCompare(this._regionName(second));
+            sources.sort(compareNames);
+            destinations.sort(compareNames);
         }
-
         this.filteredSources = sources;
-        this.filteredDests = dests;
+        this.filteredDests = destinations;
     }
 
-    // ── Rendering ────────────────────────────────────────────
-
     _render() {
+        this._hideTooltip();
+        this._hideSparkline();
         this._applyFilters();
-        this.container.innerHTML = '';
-        this.container.appendChild(this._buildToolbar());
-        this.container.appendChild(this._buildMatrix());
+        this.container.replaceChildren(this._buildToolbar(), this._buildMatrix());
+        window.lucide?.createIcons();
     }
 
     _buildToolbar() {
-        const bar = document.createElement('div');
-        bar.className = 'matrix-toolbar';
-
-        // Geography filter
-        const geoLabel = this._el('span', 'Geography:');
-        geoLabel.style.color = '#94a3b8';
-        geoLabel.style.fontSize = '0.85rem';
-        const geoSelect = document.createElement('select');
+        const toolbar = this._el('div');
+        toolbar.className = 'matrix-toolbar';
+        const geoLabel = this._el('label', 'Geography');
+        geoLabel.className = 'matrix-toolbar-label';
+        geoLabel.htmlFor = 'matrixGeo';
+        const geoSelect = this._el('select');
+        geoSelect.id = 'matrixGeo';
         geoSelect.className = 'matrix-select';
-        geoSelect.innerHTML = '<option value="all">All Regions</option>';
-        const groups = typeof GEO_GROUPS !== 'undefined' ? GEO_GROUPS : {};
-        Object.keys(groups).sort().forEach(k => {
-            geoSelect.innerHTML += `<option value="${k}">${groups[k].displayName}</option>`;
-        });
+        for (const [key, name] of [['all', 'All geographies'], ...Object.entries(GEO_GROUPS).map(([key, group]) => [key, group.displayName])]) {
+            const option = this._el('option', name);
+            option.value = key;
+            geoSelect.appendChild(option);
+        }
         geoSelect.value = this.geoFilter;
         geoSelect.addEventListener('change', () => {
             this.geoFilter = geoSelect.value;
             this._syncURLParams();
             this._render();
         });
+        toolbar.append(geoLabel, geoSelect);
 
-        // Source multi-select button
-        const srcBtn = document.createElement('button');
-        srcBtn.className = 'matrix-btn';
-        this._updateMultiSelectBtn('source', srcBtn);
-        srcBtn.addEventListener('click', () => this._showMultiSelect('source', srcBtn));
+        for (const type of ['source', 'dest']) {
+            const button = this._el('button');
+            button.id = type === 'source' ? 'matrixSources' : 'matrixDestinations';
+            button.className = 'matrix-btn';
+            button.setAttribute('aria-haspopup', 'dialog');
+            button.setAttribute('aria-expanded', 'false');
+            this._updateMultiSelectBtn(type, button);
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+                this._showMultiSelect(type, button);
+            });
+            toolbar.appendChild(button);
+        }
 
-        // Dest multi-select button
-        const dstBtn = document.createElement('button');
-        dstBtn.className = 'matrix-btn';
-        this._updateMultiSelectBtn('dest', dstBtn);
-        dstBtn.addEventListener('click', () => this._showMultiSelect('dest', dstBtn));
-
-        // Sort
-        const sortLabel = this._el('span', 'Sort:');
-        sortLabel.style.color = '#94a3b8';
-        sortLabel.style.fontSize = '0.85rem';
-        const sortSelect = document.createElement('select');
+        const sortLabel = this._el('label', 'Sort');
+        sortLabel.className = 'matrix-toolbar-label';
+        sortLabel.htmlFor = 'matrixSort';
+        const sortSelect = this._el('select');
+        sortSelect.id = 'matrixSort';
         sortSelect.className = 'matrix-select';
-        sortSelect.innerHTML = '<option value="name">By Name</option><option value="latency">By Avg Latency</option>';
+        sortSelect.innerHTML = '<option value="name">Name A-Z</option><option value="latency">Average latency</option>';
         sortSelect.value = this.sortMode;
         sortSelect.addEventListener('change', () => {
             this.sortMode = sortSelect.value;
             this._syncURLParams();
             this._render();
         });
-
-        // Spacer
-        const spacer = document.createElement('div');
-        spacer.style.marginLeft = 'auto';
-
-        // Region count
-        const countLabel = this._el('span', `${this.filteredSources.length}×${this.filteredDests.length}`);
-        countLabel.style.color = '#00d9ff';
-        countLabel.style.fontSize = '0.8rem';
-
-        // Legend
-        const legend = document.createElement('div');
-        legend.style.cssText = 'display:flex;gap:8px;align-items:center;font-size:0.75rem;flex-wrap:wrap;';
-        const legendTitle = document.createElement('span');
-        legendTitle.style.cssText = 'color:#94a3b8;font-weight:600;';
-        legendTitle.textContent = 'one-way (ms):';
-        legendTitle.title = 'Values are one-way latency from source → destination (RTT / 2). Bands map to typical cloud-application latency classes.';
-        legend.appendChild(legendTitle);
+        const legend = this._el('div');
+        legend.className = 'matrix-legend';
+        legend.appendChild(this._el('span', 'ONE-WAY / ms'));
         const bands = [
-            {
-                color: '#166534', text: '#86efac', label: 'Critical · <5',
-                title: 'Critical (RTT < 10 ms)\n' +
-                       '• High-Frequency Trading\n' +
-                       '• Cloud OLTP databases (Azure SQL, SAP HANA Cloud)\n' +
-                       '• In-memory caches (Redis, ElastiCache, Memcached)',
-            },
-            {
-                color: '#3f6212', text: '#bef264', label: 'Real-time · <25',
-                title: 'Real-time interactive (RTT < 50 ms)\n' +
-                       '• Cloud gaming\n' +
-                       '• VR/AR streaming\n' ,
-            },
-            {
-                color: '#854d0e', text: '#fde047', label: 'Interactive · <75',
-                title: 'Interactive user workloads (RTT < 150 ms)\n' +
-                       '• VDI / DaaS (Azure Virtual Desktop, Windows 365)\n' +
-                       '• SAP GUI / S/4HANA\n' +
-                       '• VoIP & video conferencing (Microsoft Teams, Zoom)\n',
-            },
-            {
-                color: '#9a3412', text: '#fdba74', label: 'Standard · <200',
-                title: 'Standard Web / SaaS (RTT < 300–500 ms)\n' +
-                       '• E-commerce (Shopify)\n' +
-                       '• Salesforce, Workday, HubSpot\n' +
-                       '• Microsoft 365, Google Workspace\n' +
-                       '• REST APIs (Stripe, Twilio, GitHub, Google Maps)\n' +
-                       '• WordPress / Magento, Slack',
-            },
-            {
-                color: '#991b1b', text: '#fca5a5', label: 'Async · ≥200',
-                title: 'Asynchronous / Batch (RTT ≳ seconds → minutes)\n' +
-                       '• Cloud backup (Azure Backup)\n' +
-                       '• File sync (OneDrive, Google Drive, Dropbox)\n' +
-                       '• Data Warehouses (Snowflake, BigQuery, Redshift)\n' +
-                       '• CI/CD pipelines (GitHub Actions, GitLab CI)\n' +
-                       '• Email (SMTP/IMAP)\n' +
-                       '• LLM APIs (OpenAI, Anthropic Claude)',
-            },
+            [0, '< 5', 'Critical: RTT below 10 ms. High-frequency trading, cloud OLTP databases, Azure SQL, SAP HANA, in-memory caches.'],
+            [5, '5-25', 'Real-time: RTT 10-50 ms. Cloud gaming, VR and AR streaming.'],
+            [25, '25-75', 'Interactive: RTT 50-150 ms. Azure Virtual Desktop, Windows 365, SAP GUI, VoIP and video conferencing.'],
+            [75, '75-200', 'Standard: RTT 150-400 ms. Web applications, SaaS, e-commerce, Microsoft 365 and REST APIs.'],
+            [200, '200+', 'Async: RTT 400 ms or more. Backups, file sync, data warehouses, CI/CD, email and batch processing.']
         ];
-        bands.forEach(b => {
-            const item = document.createElement('span');
-            item.style.cssText = 'display:inline-flex;align-items:center;gap:4px;cursor:help;';
-            item.title = b.title;
-            const swatch = document.createElement('span');
-            swatch.style.cssText = `width:12px;height:12px;border-radius:2px;background:${b.color};display:inline-block;`;
-            const lbl = document.createElement('span');
-            lbl.style.color = b.text;
-            lbl.textContent = b.label;
-            item.appendChild(swatch);
-            item.appendChild(lbl);
+        bands.forEach(([latency, label, title]) => {
+            const item = this._el('span');
+            item.className = 'matrix-legend-item';
+            item.title = title;
+            const swatch = this._el('b');
+            swatch.style.background = this._getColor(latency);
+            item.append(swatch, this._el('span', label));
             legend.appendChild(item);
         });
-
-        // CSV export — subtle style
-        const csvBtn = document.createElement('button');
-        csvBtn.className = 'matrix-btn';
-        csvBtn.style.cssText = 'font-size:0.75rem;opacity:0.6;padding:4px 10px;';
-        csvBtn.title = 'Download filtered view as CSV';
-        csvBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="vertical-align:-1px;margin-right:3px"><path d="M5.625 15C5.625 14.586 5.289 14.25 4.875 14.25C4.461 14.25 4.125 14.586 4.125 15H5.625ZM4.875 16H4.125H4.875ZM19.275 15C19.275 14.586 18.939 14.25 18.525 14.25C18.111 14.25 17.775 14.586 17.775 15H19.275ZM11.109 15.539C10.854 15.865 10.912 16.337 11.239 16.591C11.565 16.846 12.037 16.788 12.291 16.461L11.109 15.539ZM16.191 11.461C16.446 11.135 16.388 10.663 16.061 10.409C15.735 10.154 15.263 10.212 15.009 10.539L16.191 11.461ZM11.109 16.461C11.363 16.788 11.835 16.846 12.161 16.591C12.488 16.337 12.546 15.865 12.291 15.539L11.109 16.461ZM8.391 10.539C8.137 10.212 7.665 10.154 7.339 10.409C7.012 10.663 6.954 11.135 7.209 11.461L8.391 10.539ZM10.95 16C10.95 16.414 11.286 16.75 11.7 16.75C12.114 16.75 12.45 16.414 12.45 16H10.95ZM12.45 5C12.45 4.586 12.114 4.25 11.7 4.25C11.286 4.25 10.95 4.586 10.95 5H12.45ZM4.125 15V16H5.625V15H4.125ZM4.125 16C4.125 18.053 5.753 19.75 7.8 19.75V18.25C6.617 18.25 5.625 17.261 5.625 16H4.125ZM7.8 19.75H15.6V18.25H7.8V19.75ZM15.6 19.75C17.647 19.75 19.275 18.053 19.275 16H17.775C17.775 17.261 16.783 18.25 15.6 18.25V19.75ZM19.275 16V15H17.775V16H19.275ZM12.291 16.461L16.191 11.461L15.009 10.539L11.109 15.539L12.291 16.461ZM12.291 15.539L8.391 10.539L7.209 11.461L11.109 16.461L12.291 15.539ZM12.45 16V5H10.95V16H12.45Z" fill="#94a3b8"/></svg>CSV';
-        csvBtn.addEventListener('click', () => this._exportCSV());
-
-        [geoLabel, geoSelect, srcBtn, dstBtn, sortLabel, sortSelect, spacer, legend, csvBtn].forEach(el => bar.appendChild(el));
-        return bar;
+        const exportButton = this._el('button');
+        exportButton.className = 'icon-btn';
+        exportButton.setAttribute('aria-label', 'Export matrix as CSV');
+        exportButton.dataset.tooltip = 'Export matrix';
+        exportButton.innerHTML = '<i data-lucide="download"></i>';
+        exportButton.disabled = !this.filteredSources.length || !this.filteredDests.length;
+        exportButton.addEventListener('click', () => this._exportCSV());
+        toolbar.append(sortLabel, sortSelect, legend, exportButton);
+        return toolbar;
     }
 
     _buildMatrix() {
-        const wrapper = document.createElement('div');
+        const wrapper = this._el('div');
         wrapper.className = 'matrix-scroll';
-
-        if (this.filteredSources.length === 0 || this.filteredDests.length === 0) {
-            wrapper.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;">No regions match the current filters.</div>';
+        if (!this.filteredSources.length || !this.filteredDests.length) {
+            const empty = this._el('div');
+            empty.className = 'no-data';
+            empty.innerHTML = '<i data-lucide="grid-3x3"></i><p>No regions match the current filters</p>';
+            wrapper.appendChild(empty);
             return wrapper;
         }
-
-        const table = document.createElement('table');
+        const table = this._el('table');
         table.className = 'matrix-table';
-
-        // Header row
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const cornerCell = document.createElement('th');
-        cornerCell.className = 'matrix-corner';
-        cornerCell.textContent = 'Source \\ Dest';
-        headerRow.appendChild(cornerCell);
-
-        this.filteredDests.forEach(dst => {
-            const th = document.createElement('th');
-            th.className = 'matrix-col-header';
-            const innerDiv = document.createElement('div');
-            innerDiv.className = 'matrix-col-header-text';
-            innerDiv.textContent = this._regionName(dst);
-            // Color based on region type
-            const dstInfo = this._regionInfo(dst);
-            if (dstInfo) {
-                innerDiv.style.color = getRegionColor(dstInfo);
-            }
-            th.appendChild(innerDiv);
-            th.addEventListener('mouseenter', e => this._showRegionTooltip(dst, e));
-            th.addEventListener('mouseleave', () => this._hideTooltip());
-            headerRow.appendChild(th);
+        table.setAttribute('aria-label', 'One-way latency in milliseconds, source rows to destination columns');
+        const head = this._el('thead');
+        const headerRow = this._el('tr');
+        const corner = this._el('th', 'Source / Destination');
+        corner.className = 'matrix-corner';
+        corner.scope = 'col';
+        headerRow.appendChild(corner);
+        this.filteredDests.forEach(destination => {
+            const header = this._el('th');
+            header.className = 'matrix-col-header';
+            header.scope = 'col';
+            const text = this._el('div', this._regionName(destination));
+            text.className = 'matrix-col-header-text';
+            if (this._regionInfo(destination)) text.style.color = getRegionColor(this._regionInfo(destination));
+            header.appendChild(text);
+            this._bindRegionTooltip(header, destination);
+            headerRow.appendChild(header);
         });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        // Body rows
-        const tbody = document.createElement('tbody');
-        this.filteredSources.forEach(src => {
-            const row = document.createElement('tr');
-            const rowHeader = document.createElement('td');
+        head.appendChild(headerRow);
+        table.appendChild(head);
+        const body = this._el('tbody');
+        let focusAssigned = false;
+        this.filteredSources.forEach(source => {
+            const row = this._el('tr');
+            const rowHeader = this._el('th', this._regionName(source));
             rowHeader.className = 'matrix-row-header';
-            rowHeader.textContent = this._regionName(src);
-            // Color based on region type
-            const srcInfo = this._regionInfo(src);
-            if (srcInfo) {
-                rowHeader.style.color = getRegionColor(srcInfo);
-            }
-            rowHeader.addEventListener('mouseenter', e => this._showRegionTooltip(src, e));
-            rowHeader.addEventListener('mouseleave', () => this._hideTooltip());
+            rowHeader.scope = 'row';
+            if (this._regionInfo(source)) rowHeader.style.color = getRegionColor(this._regionInfo(source));
+            this._bindRegionTooltip(rowHeader, source);
             row.appendChild(rowHeader);
-
-            this.filteredDests.forEach(dst => {
-                const td = document.createElement('td');
-                td.className = 'matrix-cell';
-                const lat = this._getLatency(src, dst);
-                if (src === dst) {
-                    td.style.background = '#1a1a2e';
-                    td.textContent = '—';
-                    td.style.color = '#555';
-                } else if (lat !== null) {
-                    td.style.background = this._getColor(lat);
-                    td.style.color = this._getTextColor(lat);
-                    td.textContent = lat.toFixed(1);
-                    td.addEventListener('mouseenter', e => this._showSparkline(src, dst, lat, e));
-                    td.addEventListener('mouseleave', () => this._hideSparkline());
-                } else {
-                    td.style.background = '#2a2a3e';
-                    td.textContent = '–';
-                    td.style.color = '#555';
+            this.filteredDests.forEach(destination => {
+                const cell = this._el('td');
+                const latency = this._getLatency(source, destination);
+                cell.className = 'matrix-cell';
+                cell.dataset.source = source;
+                cell.dataset.destination = destination;
+                cell.tabIndex = focusAssigned ? -1 : 0;
+                focusAssigned = true;
+                const measured = source !== destination && latency !== null;
+                cell.style.background = this._getColor(measured ? latency : null);
+                cell.style.color = this._getTextColor(measured ? latency : null);
+                cell.textContent = measured ? latency.toFixed(1) : '\u2014';
+                cell.setAttribute('aria-label', `${this._regionName(source)} to ${this._regionName(destination)}: ${measured ? `${latency.toFixed(2)} ms one-way` : source === destination ? 'same region' : 'no measurement'}`);
+                if (measured) {
+                    const show = event => this._showSparkline(source, destination, latency, event);
+                    cell.addEventListener('mouseenter', show);
+                    cell.addEventListener('focus', show);
+                    cell.addEventListener('click', show);
+                    cell.addEventListener('mouseleave', () => this._hideSparkline());
+                    cell.addEventListener('blur', () => this._hideSparkline());
                 }
-                row.appendChild(td);
+                row.appendChild(cell);
             });
-            tbody.appendChild(row);
+            body.appendChild(row);
         });
-        table.appendChild(tbody);
+        table.appendChild(body);
+        table.addEventListener('keydown', event => {
+            const cell = event.target.closest('.matrix-cell');
+            if (!cell || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const rowIndex = Math.max(1, Math.min(table.rows.length - 1, cell.parentElement.rowIndex + (event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0)));
+            let columnIndex = Math.max(1, Math.min(this.filteredDests.length, cell.cellIndex + (event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0)));
+            if (event.key === 'Home') columnIndex = 1;
+            if (event.key === 'End') columnIndex = this.filteredDests.length;
+            cell.tabIndex = -1;
+            const target = table.rows[rowIndex].cells[columnIndex];
+            target.tabIndex = 0;
+            target.focus();
+        });
+        wrapper.addEventListener('scroll', () => {
+            this._hideTooltip();
+            this._hideSparkline();
+        });
         wrapper.appendChild(table);
         return wrapper;
     }
 
-    // ── Tooltips & sparklines ────────────────────────────────
+    _bindRegionTooltip(element, regionId) {
+        const info = this._regionInfo(regionId);
+        if (info) element.setAttribute('aria-label', `${info.displayName}, ${info.country}, ${getRegionStatus(info)}`);
+        element.addEventListener('mouseenter', event => this._showRegionTooltip(regionId, event));
+        element.addEventListener('click', event => this._showRegionTooltip(regionId, event));
+        element.addEventListener('mouseleave', () => this._hideTooltip());
+    }
 
     _showRegionTooltip(regionId, event) {
         const info = this._regionInfo(regionId);
         if (!info) return;
         if (!this._tooltipEl) {
-            this._tooltipEl = document.createElement('div');
+            this._tooltipEl = this._el('div');
             this._tooltipEl.className = 'matrix-tooltip';
+            this._tooltipEl.setAttribute('role', 'tooltip');
             document.body.appendChild(this._tooltipEl);
         }
-        const regionTypeLabel = getRegionStatus(info);
-        const city = info.city ? `${info.city}, ` : '';
-        this._tooltipEl.innerHTML = `
-            <strong>${info.displayName}</strong><br>
-            📍 ${city}${info.country}<br>
-            🌍 ${this._geoGroupName(info.geoGroup)}<br>
-            🏷️ Type: ${regionTypeLabel}
-        `;
+        this._tooltipEl.replaceChildren(
+            this._el('strong', info.displayName),
+            this._el('div', [info.city, info.country].filter(Boolean).join(', ')),
+            this._el('div', this._geoGroupName(info.geoGroup)),
+            this._el('div', `${getRegionStatus(info)} region`)
+        );
         this._tooltipEl.style.display = 'block';
         this._positionFloating(this._tooltipEl, event);
     }
@@ -490,517 +375,235 @@ class MatrixView {
         if (this._tooltipEl) this._tooltipEl.style.display = 'none';
     }
 
-    _showSparkline(src, dst, latency, event) {
+    _showSparkline(source, destination, latency, event) {
         if (!this._sparklineEl) {
-            this._sparklineEl = document.createElement('div');
+            this._sparklineEl = this._el('div');
             this._sparklineEl.className = 'matrix-sparkline-popup';
+            this._sparklineEl.setAttribute('role', 'tooltip');
             document.body.appendChild(this._sparklineEl);
         }
-
-        const history = this.historyMap.get(`${src}|${dst}`) || [];
-        const srcName = this._regionName(src);
-        const dstName = this._regionName(dst);
-
-        let html = `<div style="margin-bottom:6px;font-weight:600;font-size:0.85rem;">${srcName} → ${dstName}</div>`;
-        html += `<div style="font-size:0.8rem;color:#00d9ff;margin-bottom:6px;">Current: ${latency.toFixed(2)} ms <span style="color:#94a3b8;font-size:0.7rem;">(one-way)</span></div>`;
-
-        if (history.length > 1) {
-            html += `<canvas id="matrix-sparkline-canvas" width="280" height="100"></canvas>`;
-            html += `<div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">${history.length} measurements</div>`;
-        } else {
-            html += `<div style="font-size:0.75rem;color:#94a3b8;">No history data</div>`;
+        const samples = this.historyMap.get(`${source}|${destination}`) || [];
+        const title = this._el('div', `${this._regionName(source)} \u2192 ${this._regionName(destination)}`);
+        title.className = 'sparkline-title';
+        const value = this._el('div', `${latency.toFixed(2)} ms `);
+        value.className = 'sparkline-value';
+        value.appendChild(this._el('span', 'one-way'));
+        this._sparklineEl.replaceChildren(title, value);
+        if (samples.length > 1) {
+            const canvas = this._el('canvas');
+            canvas.id = 'matrix-sparkline-canvas';
+            canvas.width = 280;
+            canvas.height = 100;
+            canvas.setAttribute('role', 'img');
+            const values = samples.map(sample => sample.latency);
+            canvas.setAttribute('aria-label', `${samples.length} measurements, from ${Math.min(...values).toFixed(2)} to ${Math.max(...values).toFixed(2)} milliseconds`);
+            this._sparklineEl.appendChild(canvas);
+            this._drawSparkline(canvas, samples);
         }
-
-        this._sparklineEl.innerHTML = html;
+        const meta = this._el('div', samples.length ? `${samples.length} historical measurements` : 'No historical samples');
+        meta.className = 'sparkline-meta';
+        this._sparklineEl.appendChild(meta);
         this._sparklineEl.style.display = 'block';
         this._positionFloating(this._sparklineEl, event);
-
-        // Draw sparkline canvas
-        if (history.length > 1) {
-            requestAnimationFrame(() => {
-                const canvas = document.getElementById('matrix-sparkline-canvas');
-                if (canvas) this._drawSparkline(canvas, history);
-            });
-        }
     }
 
     _hideSparkline() {
         if (this._sparklineEl) this._sparklineEl.style.display = 'none';
     }
 
-    _positionFloating(el, event) {
-        const x = event.clientX + 12;
-        const y = event.clientY + 12;
-        el.style.left = `${Math.min(x, window.innerWidth - 260)}px`;
-        el.style.top = `${Math.min(y, window.innerHeight - 150)}px`;
+    _positionFloating(element, event) {
+        const anchor = event.currentTarget?.getBoundingClientRect();
+        const pointerX = Number.isFinite(event.clientX) ? event.clientX : anchor?.left || 12;
+        const pointerY = Number.isFinite(event.clientY) ? event.clientY : anchor?.bottom || 12;
+        const left = Math.max(12, Math.min(pointerX + 12, window.innerWidth - element.offsetWidth - 12));
+        const desiredTop = pointerY + element.offsetHeight + 24 > window.innerHeight ? pointerY - element.offsetHeight - 12 : pointerY + 12;
+        const top = Math.max(12, Math.min(desiredTop, window.innerHeight - element.offsetHeight - 12));
+        element.style.left = `${left}px`;
+        element.style.top = `${top}px`;
     }
 
-    _drawSparkline(canvas, history) {
-        const ctx = canvas.getContext('2d');
-        const W = canvas.width, H = canvas.height;
-        const values = history.map(h => h.latency);
-        const maxV = Math.max(...values);
-        const range = maxV || 1;
-        const pad = { t: 8, r: 10, b: 20, l: 34 };
-        const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
-
-        ctx.clearRect(0, 0, W, H);
-
-        function x(i) { return pad.l + (i / (values.length - 1)) * cw; }
-        function y(v) { return pad.t + ch - (v / range) * ch; }
-
-        // Grid lines
-        ctx.strokeStyle = 'rgba(148,163,184,0.15)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 3; i++) {
-            const gy = pad.t + (ch / 3) * i;
-            ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W - pad.r, gy); ctx.stroke();
+    _drawSparkline(canvas, samples) {
+        const context = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const values = samples.map(sample => sample.latency);
+        const maximum = Math.max(...values);
+        const range = maximum || 1;
+        const padding = { top: 8, right: 10, bottom: 20, left: 34 };
+        const plotWidth = width - padding.left - padding.right;
+        const plotHeight = height - padding.top - padding.bottom;
+        const positionX = index => padding.left + index / (values.length - 1) * plotWidth;
+        const positionY = value => padding.top + plotHeight - value / range * plotHeight;
+        context.clearRect(0, 0, width, height);
+        context.strokeStyle = '#e1dfdd';
+        context.lineWidth = 1;
+        context.fillStyle = '#605e5c';
+        context.font = '9px monospace';
+        context.textAlign = 'right';
+        for (let index = 0; index <= 3; index++) {
+            const vertical = padding.top + plotHeight / 3 * index;
+            context.beginPath();
+            context.moveTo(padding.left, vertical);
+            context.lineTo(width - padding.right, vertical);
+            context.stroke();
+            context.fillText((maximum - maximum / 3 * index).toFixed(1), padding.left - 4, vertical + 3);
         }
-
-        // Y-axis labels
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '9px sans-serif';
-        ctx.textAlign = 'right';
-        for (let i = 0; i <= 3; i++) {
-            const v = maxV - (maxV / 3) * i;
-            ctx.fillText(Math.round(v), pad.l - 4, pad.t + (ch / 3) * i + 3);
-        }
-
-        // X-axis date labels
-        ctx.textAlign = 'left';
-        const firstDate = history[0].timestamp ? new Date(history[0].timestamp) : null;
-        const lastDate = history[history.length - 1].timestamp ? new Date(history[history.length - 1].timestamp) : null;
-        if (firstDate) {
-            ctx.fillText(firstDate.toLocaleDateString('en', { month: 'short', day: 'numeric' }), pad.l, H - 3);
-        }
-        if (lastDate) {
-            ctx.textAlign = 'right';
-            ctx.fillText(lastDate.toLocaleDateString('en', { month: 'short', day: 'numeric' }), W - pad.r, H - 3);
-        }
-
-        // Line
-        ctx.beginPath();
-        ctx.strokeStyle = '#00d9ff';
-        ctx.lineWidth = 1.5;
-        ctx.lineJoin = 'round';
-        values.forEach((v, i) => {
-            if (i === 0) ctx.moveTo(x(i), y(v));
-            else ctx.lineTo(x(i), y(v));
+        const dateLabel = timestamp => new Date(timestamp).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        context.textAlign = 'left';
+        context.fillText(dateLabel(samples[0].timestamp), padding.left, height - 3);
+        context.textAlign = 'right';
+        context.fillText(dateLabel(samples[samples.length - 1].timestamp), width - padding.right, height - 3);
+        context.beginPath();
+        context.strokeStyle = '#0078d4';
+        context.lineWidth = 1.5;
+        context.lineJoin = 'round';
+        values.forEach((value, index) => {
+            if (index === 0) context.moveTo(positionX(index), positionY(value));
+            else context.lineTo(positionX(index), positionY(value));
         });
-        ctx.stroke();
-
-        // Fill under
-        ctx.lineTo(x(values.length - 1), pad.t + ch);
-        ctx.lineTo(x(0), pad.t + ch);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(0,217,255,0.08)';
-        ctx.fill();
-
-        // Dots
-        ctx.fillStyle = '#00d9ff';
-        values.forEach((v, i) => {
-            ctx.beginPath();
-            ctx.arc(x(i), y(v), 1.5, 0, Math.PI * 2);
-            ctx.fill();
+        context.stroke();
+        context.lineTo(positionX(values.length - 1), padding.top + plotHeight);
+        context.lineTo(positionX(0), padding.top + plotHeight);
+        context.closePath();
+        context.fillStyle = '#0078d412';
+        context.fill();
+        context.fillStyle = '#0078d4';
+        values.forEach((value, index) => {
+            context.beginPath();
+            context.arc(positionX(index), positionY(value), 1.5, 0, Math.PI * 2);
+            context.fill();
         });
     }
 
-    // ── Multi-select popover ─────────────────────────────────
-
-    _showMultiSelect(type, anchorBtn) {
-        // Remove existing popover
-        const existing = document.querySelector('.matrix-multiselect-popover');
-        if (existing) { existing.remove(); return; }
-
-        const allRegions = type === 'source' ? this.sourceRegions : this.destRegions;
-        // Initialize selection set if null (means "all")
-        if (type === 'source' && !this._sourceSelection) {
-            this._sourceSelection = new Set(allRegions);
+    _showMultiSelect(type, anchorButton) {
+        if (this._popover) {
+            const sameType = this._popover.type === type;
+            this._closePopover(true);
+            if (sameType) return;
+            anchorButton = document.getElementById(type === 'source' ? 'matrixSources' : 'matrixDestinations');
         }
-        if (type === 'dest' && !this._destSelection) {
-            this._destSelection = new Set(allRegions);
-        }
-        const sel = type === 'source' ? this._sourceSelection : this._destSelection;
-
-        const popover = document.createElement('div');
+        const regions = type === 'source' ? this.sourceRegions : this.destRegions;
+        const selection = new Set((type === 'source' ? this._sourceSelection : this._destSelection) || regions);
+        const popover = this._el('div');
         popover.className = 'matrix-multiselect-popover';
-
-        // Search
-        const search = document.createElement('input');
+        popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-label', type === 'source' ? 'Filter source regions' : 'Filter destination regions');
+        const search = this._el('input');
+        search.type = 'search';
         search.className = 'matrix-search';
-        search.placeholder = 'Search regions...';
-        popover.appendChild(search);
-
-        // Select All / Clear
-        const controls = document.createElement('div');
-        controls.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;';
-        const selAllBtn = document.createElement('button');
-        selAllBtn.className = 'matrix-btn';
-        selAllBtn.textContent = 'All';
-        selAllBtn.style.fontSize = '0.75rem';
-        const clrBtn = document.createElement('button');
-        clrBtn.className = 'matrix-btn';
-        clrBtn.textContent = 'None';
-        clrBtn.style.fontSize = '0.75rem';
-        controls.appendChild(selAllBtn);
-        controls.appendChild(clrBtn);
-        popover.appendChild(controls);
-
-        // Checkbox list
-        const list = document.createElement('div');
+        search.placeholder = 'Search regions';
+        search.setAttribute('aria-label', 'Search regions');
+        const controls = this._el('div');
+        controls.className = 'matrix-selection-controls';
+        const allButton = this._el('button', 'Select all');
+        allButton.className = 'matrix-btn';
+        const noneButton = this._el('button', 'Clear');
+        noneButton.className = 'matrix-btn';
+        controls.append(allButton, noneButton);
+        const list = this._el('div');
         list.className = 'matrix-multiselect-list';
-
-        const renderList = (filter) => {
-            list.innerHTML = '';
-            const filtered = filter
-                ? allRegions.filter(r => this._regionName(r).toLowerCase().includes(filter.toLowerCase()))
-                : allRegions;
-            filtered.forEach(rId => {
-                const item = document.createElement('label');
+        const renderList = () => {
+            list.replaceChildren();
+            const query = search.value.toLowerCase().trim();
+            const matches = regions.filter(region => `${this._regionName(region)} ${region}`.toLowerCase().includes(query));
+            matches.forEach(regionId => {
+                const item = this._el('label');
                 item.className = 'matrix-ms-item';
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.checked = sel.has(rId);
-                cb.addEventListener('change', () => {
-                    if (cb.checked) sel.add(rId);
-                    else sel.delete(rId);
-                    this._updateMultiSelectBtn(type, anchorBtn);
+                const checkbox = this._el('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = selection.has(regionId);
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) selection.add(regionId);
+                    else selection.delete(regionId);
                 });
-                item.appendChild(cb);
-                item.appendChild(document.createTextNode(' ' + this._regionName(rId)));
+                item.append(checkbox, this._el('span', this._regionName(regionId)));
                 list.appendChild(item);
             });
+            if (!matches.length) list.appendChild(this._el('p', 'No matching regions'));
         };
-        renderList('');
-
-        search.addEventListener('input', () => renderList(search.value));
-        selAllBtn.addEventListener('click', () => {
-            allRegions.forEach(r => sel.add(r));
-            this._updateMultiSelectBtn(type, anchorBtn);
-            renderList(search.value);
+        search.addEventListener('input', renderList);
+        allButton.addEventListener('click', () => {
+            regions.forEach(region => selection.add(region));
+            renderList();
         });
-        clrBtn.addEventListener('click', () => {
-            sel.clear();
-            this._updateMultiSelectBtn(type, anchorBtn);
-            renderList(search.value);
+        noneButton.addEventListener('click', () => {
+            selection.clear();
+            renderList();
         });
-
-        popover.appendChild(list);
-
-        // Apply button
-        const applyBtn = document.createElement('button');
-        applyBtn.className = 'matrix-btn matrix-btn-accent';
-        applyBtn.textContent = 'Apply';
-        applyBtn.style.marginTop = '8px';
-        applyBtn.style.width = '100%';
-        applyBtn.addEventListener('click', () => {
-            popover.remove();
-            this._syncURLParams();
-            this._render();
+        const applyButton = this._el('button', 'Apply filters');
+        applyButton.className = 'matrix-btn matrix-btn-accent matrix-apply';
+        applyButton.addEventListener('click', () => this._closePopover(true, true));
+        popover.append(search, controls, list, applyButton);
+        renderList();
+        const outsideClick = event => {
+            if (!popover.contains(event.target) && !anchorButton.contains(event.target)) this._closePopover(true);
+        };
+        popover.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                event.stopPropagation();
+                this._closePopover(false, true);
+            }
+            if (event.key === 'Tab' && event.shiftKey && document.activeElement === search) {
+                event.preventDefault();
+                applyButton.focus();
+            } else if (event.key === 'Tab' && !event.shiftKey && document.activeElement === applyButton) {
+                event.preventDefault();
+                search.focus();
+            }
         });
-        popover.appendChild(applyBtn);
-
-        // Position near the button
-        const rect = anchorBtn.getBoundingClientRect();
+        this._popover = { element: popover, type, selection, outsideClick, buttonId: anchorButton.id };
+        anchorButton.setAttribute('aria-expanded', 'true');
         popover.style.position = 'fixed';
-        popover.style.left = `${rect.left}px`;
-        popover.style.top = `${rect.bottom + 4}px`;
         popover.style.zIndex = '10000';
         document.body.appendChild(popover);
-
-        // Close on outside click (apply + close)
-        setTimeout(() => {
-            const closeHandler = (e) => {
-                if (!popover.contains(e.target) && e.target !== anchorBtn) {
-                    popover.remove();
-                    document.removeEventListener('mousedown', closeHandler);
-                    this._syncURLParams();
-                    this._render();
-                }
-            };
-            document.addEventListener('mousedown', closeHandler);
-        }, 0);
+        const anchor = anchorButton.getBoundingClientRect();
+        this._positionFloating(popover, { clientX: anchor.left - 12, clientY: anchor.bottom - 7 });
+        document.addEventListener('click', outsideClick);
+        search.focus({ preventScroll: true });
     }
 
-    _updateMultiSelectBtn(type, btn) {
-        const sel = type === 'source' ? this._sourceSelection : this._destSelection;
-        const all = type === 'source' ? this.sourceRegions : this.destRegions;
-        if (!sel || sel.size === all.length) {
-            btn.textContent = `${type === 'source' ? 'Sources' : 'Destinations'} (all)`;
-        } else {
-            btn.textContent = `${type === 'source' ? 'Sources' : 'Destinations'} (${sel.size}/${all.length})`;
+    _closePopover(apply, restoreFocus = false) {
+        if (!this._popover) return;
+        const { element, type, selection, outsideClick, buttonId } = this._popover;
+        document.removeEventListener('click', outsideClick);
+        element.remove();
+        this._popover = null;
+        document.getElementById(buttonId)?.setAttribute('aria-expanded', 'false');
+        if (apply) {
+            const regions = type === 'source' ? this.sourceRegions : this.destRegions;
+            this[type === 'source' ? '_sourceSelection' : '_destSelection'] = selection.size === regions.length ? null : selection;
+            this._syncURLParams();
+            this._render();
         }
+        if (restoreFocus) document.getElementById(buttonId)?.focus();
     }
 
-    // ── CSV export ───────────────────────────────────────────
+    _updateMultiSelectBtn(type, button) {
+        const selection = type === 'source' ? this._sourceSelection : this._destSelection;
+        const regions = type === 'source' ? this.sourceRegions : this.destRegions;
+        button.textContent = `${type === 'source' ? 'Sources' : 'Destinations'} (${selection ? selection.size : regions.length}) `;
+        const icon = this._el('i');
+        icon.dataset.lucide = 'chevron-down';
+        button.appendChild(icon);
+    }
 
     _exportCSV() {
-        const rows = [];
-        const header = ['Source \\ Destination', ...this.filteredDests.map(d => this._regionName(d))];
-        rows.push(header.join(','));
-
-        this.filteredSources.forEach(src => {
-            const row = [this._regionName(src)];
-            this.filteredDests.forEach(dst => {
-                if (src === dst) row.push('');
-                else {
-                    const lat = this._getLatency(src, dst);
-                    row.push(lat !== null ? lat.toFixed(2) : '');
-                }
+        const rows = [['Source \\ Destination', ...this.filteredDests.map(region => this._regionName(region))]];
+        this.filteredSources.forEach(source => {
+            const row = [this._regionName(source)];
+            this.filteredDests.forEach(destination => {
+                const latency = this._getLatency(source, destination);
+                row.push(source === destination || latency === null ? '' : latency.toFixed(2));
             });
-            rows.push(row.join(','));
+            rows.push(row);
         });
-
-        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'azure-latency-matrix.csv';
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadCSV(rows, `${window.app?.isDemo ? 'demo-' : ''}azure-latency-matrix.csv`);
+        window.app?.showToast(`${this.filteredSources.length} x ${this.filteredDests.length} matrix exported`);
     }
-
-    // ── Helpers ──────────────────────────────────────────────
 
     _el(tag, text) {
-        const el = document.createElement(tag);
-        if (text) el.textContent = text;
-        return el;
-    }
-
-    // ── Styles (injected once) ───────────────────────────────
-
-    _injectStyles() {
-        if (this._styleInjected) return;
-        this._styleInjected = true;
-
-        const style = document.createElement('style');
-        style.textContent = `
-            #matrix {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                background: #1a1a2e;
-                overflow: hidden;
-            }
-
-            .matrix-toolbar {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 10px 16px;
-                background: #16213e;
-                border-bottom: 1px solid #0f3460;
-                flex-wrap: wrap;
-                flex-shrink: 0;
-            }
-
-            .matrix-select {
-                padding: 6px 10px;
-                border: 1px solid #0f3460;
-                border-radius: 6px;
-                background: #1a1a2e;
-                color: #fff;
-                font-size: 0.85rem;
-                cursor: pointer;
-            }
-            .matrix-select:focus { outline: none; border-color: #0078d4; }
-
-            .matrix-btn {
-                padding: 6px 12px;
-                border: 1px solid #0f3460;
-                border-radius: 6px;
-                background: #1a1a2e;
-                color: #e2e8f0;
-                font-size: 0.8rem;
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-            .matrix-btn:hover {
-                background: #0f3460;
-                border-color: #0078d4;
-            }
-            .matrix-btn-accent {
-                background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-                border-color: #0078d4;
-                color: #fff;
-                font-weight: 600;
-            }
-            .matrix-btn-accent:hover {
-                background: linear-gradient(135deg, #106ebe 0%, #0078d4 100%);
-            }
-
-            .matrix-scroll {
-                flex: 1;
-                overflow: auto;
-                position: relative;
-            }
-
-            .matrix-table {
-                border-collapse: separate;
-                border-spacing: 0;
-                font-size: 0.75rem;
-                min-width: max-content;
-            }
-
-            .matrix-corner {
-                position: sticky;
-                top: 0;
-                left: 0;
-                z-index: 3;
-                background: #16213e;
-                padding: 8px 12px;
-                font-size: 0.75rem;
-                color: #94a3b8;
-                border-bottom: 2px solid #0f3460;
-                border-right: 2px solid #0f3460;
-                min-width: 130px;
-                text-align: left;
-            }
-
-            .matrix-col-header {
-                position: sticky;
-                top: 0;
-                z-index: 2;
-                background: #16213e;
-                border-bottom: 2px solid #0f3460;
-                padding: 0;
-                height: 120px;
-                min-width: 44px;
-                max-width: 44px;
-                vertical-align: bottom;
-                cursor: default;
-            }
-
-            .matrix-col-header-text {
-                writing-mode: vertical-rl;
-                transform: rotate(180deg);
-                padding: 8px 4px;
-                white-space: nowrap;
-                color: #e2e8f0;
-                font-weight: 600;
-                font-size: 0.72rem;
-            }
-
-            .matrix-row-header {
-                position: sticky;
-                left: 0;
-                z-index: 1;
-                background: #16213e;
-                padding: 6px 12px;
-                font-weight: 600;
-                color: #e2e8f0;
-                border-right: 2px solid #0f3460;
-                white-space: nowrap;
-                min-width: 130px;
-                font-size: 0.78rem;
-                cursor: default;
-            }
-
-            .matrix-cell {
-                padding: 4px 2px;
-                text-align: center;
-                font-size: 0.7rem;
-                font-weight: 600;
-                cursor: default;
-                min-width: 44px;
-                max-width: 44px;
-                border: 1px solid rgba(0,0,0,0.2);
-                transition: opacity 0.15s;
-            }
-            .matrix-cell:hover {
-                opacity: 0.8;
-                outline: 2px solid #00d9ff;
-                outline-offset: -2px;
-            }
-
-            .matrix-tooltip {
-                position: fixed;
-                background: #16213e;
-                border: 1px solid #0f3460;
-                border-radius: 8px;
-                padding: 10px 14px;
-                color: #e2e8f0;
-                font-size: 0.82rem;
-                line-height: 1.6;
-                z-index: 10001;
-                pointer-events: none;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                display: none;
-                max-width: 240px;
-            }
-
-            .matrix-sparkline-popup {
-                position: fixed;
-                background: #16213e;
-                border: 1px solid #0f3460;
-                border-radius: 8px;
-                padding: 10px 14px;
-                color: #e2e8f0;
-                z-index: 10001;
-                pointer-events: none;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                display: none;
-                min-width: 220px;
-            }
-
-            .matrix-multiselect-popover {
-                background: #16213e;
-                border: 1px solid #0f3460;
-                border-radius: 8px;
-                padding: 12px;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-                width: 260px;
-                max-height: 400px;
-                display: flex;
-                flex-direction: column;
-            }
-
-            .matrix-search {
-                padding: 6px 10px;
-                border: 1px solid #0f3460;
-                border-radius: 6px;
-                background: #1a1a2e;
-                color: #fff;
-                font-size: 0.85rem;
-                margin-bottom: 8px;
-                width: 100%;
-            }
-            .matrix-search:focus { outline: none; border-color: #0078d4; }
-            .matrix-search::placeholder { color: #64748b; }
-
-            .matrix-multiselect-list {
-                overflow-y: auto;
-                max-height: 260px;
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-            }
-
-            .matrix-ms-item {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 5px 8px;
-                border-radius: 4px;
-                font-size: 0.82rem;
-                color: #e2e8f0;
-                cursor: pointer;
-            }
-            .matrix-ms-item:hover { background: rgba(0,120,212,0.15); }
-            .matrix-ms-item input { accent-color: #0078d4; cursor: pointer; }
-
-            @media (max-width: 768px) {
-                .matrix-toolbar {
-                    padding: 8px 10px;
-                    gap: 6px;
-                }
-                .matrix-col-header { height: 80px; min-width: 36px; max-width: 36px; }
-                .matrix-cell { min-width: 36px; max-width: 36px; font-size: 0.65rem; }
-                .matrix-row-header { min-width: 100px; font-size: 0.72rem; padding: 4px 8px; }
-                .matrix-corner { min-width: 100px; }
-            }
-        `;
-        document.head.appendChild(style);
+        const element = document.createElement(tag);
+        if (text !== undefined) element.textContent = text;
+        return element;
     }
 }
